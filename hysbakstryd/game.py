@@ -24,8 +24,6 @@ class Game:
             if hashpw(bytes(password, "utf-8"), hashed) == hashed:
                 print("old password correct")
                 # yeah
-                self.user_to_network_clients[username] = network_client
-                self.network_to_game_clients[network_client] = GameClient(username, **kw)
             else:
                 print("old password is different")
                 raise WrongPassword()
@@ -33,9 +31,9 @@ class Game:
             print("new password")
 
             self.user_to_passwords[username] = hashpw(bytes(password, "utf-8"), gensalt())
-            self.user_to_network_clients[username] = network_client
-            self.network_to_game_clients[network_client] = GameClient(username, **kw)
 
+        self.user_to_network_clients[username] = network_client
+        self.network_to_game_clients[network_client] = GameClient(username, **kw)
         return self.network_to_game_clients[network_client]
 
     def unregister(self, network_client):
