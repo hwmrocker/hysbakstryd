@@ -6,6 +6,7 @@ import hysbakstryd.game
 
 from importlib import reload
 
+
 class Client:
 
     def __init__(self, reader, writer, game):
@@ -113,9 +114,9 @@ class Server:
             if new_mtime != old_mtime:
                 print("reload")
                 self.pause_all_clients()
-                # reload game
-                reload(hysbakstryd.game)
                 self.game.pause()
+                # actually reload game
+                reload(hysbakstryd.game)
                 self.game = hysbakstryd.game.Game(_old_game=self.game)
                 self.game.resume()
                 self.resume_all_clients()

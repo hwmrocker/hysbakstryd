@@ -35,7 +35,6 @@ class NetworkClient:
             # asyncio.async(self.create_input())
             self.reader = reader
             self.writer = writer
-            print("haha")
             self.send_msg(dict(type="connect", username="hwm", password="foobar2"))
             self.sockname = writer.get_extra_info('sockname')
             unpacker = msgpack.Unpacker(encoding='utf-8')
@@ -73,13 +72,6 @@ class HWM(NetworkClient):
 
     def handle_ERR(self, data):
         print(data)
-
-
-@asyncio.coroutine
-def main_loop(client):
-    def walk(direction="a"):
-        return dict(type="move", direction=direction, distance=2)
-    yield from asyncio.sleep(1)
 
 
 if __name__ == "__main__":
