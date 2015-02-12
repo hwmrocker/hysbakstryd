@@ -1,6 +1,6 @@
 from bcrypt import hashpw, gensalt
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
 
 
 class WrongPassword(Exception):
@@ -29,8 +29,8 @@ class Game:
             self.user_to_game_clients[username] = GameClient(username, _old_client=old_game_client)
 
     def inform_all(self, msg_type, data, from_id="__master__"):
-        for net_client in self.user_to_network_clients.items():
-            net_client.inform(msg_type, from_id, data)
+        for net_client in self.user_to_network_clients.values():
+            net_client.inform(msg_type, data, from_id=from_id)
 
     def register(self, network_client, username, password, **kw):
         print("register {}".format(username))
@@ -50,14 +50,21 @@ class Game:
 
         if username not in self.user_to_game_clients:
             self.user_to_game_clients[username] = GameClient(username, **kw)
+        else:
+            self.user_to_game_clients[username].online = True
+            try:
+                self.unregister(self.user_to_network_clients[username])
+            except:
+                print("unregister bei relogin ging nicht")
 
         self.user_to_network_clients[username] = network_client
         self.network_to_user[network_client] = username
         return self.user_to_game_clients[username]
 
     def unregister(self, network_client):
+        print("bye {}".format(network_client))
         username = self.network_to_user[network_client]
-        self.user_to_game_clients[username].online = False
+        # self.user_to_game_clients[username].online = False
         del self.user_to_network_clients[username]
         del self.network_to_user[network_client]
 

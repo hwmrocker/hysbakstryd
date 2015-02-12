@@ -21,7 +21,7 @@ class Client:
 
     def inform(self, msg_type, msg_data, from_id="__master__"):
         try:
-            self.writer.write(msgpack.packb((msg_type, msg_data)))
+            self.writer.write(msgpack.packb((msg_type, from_id, msg_data)))
         except:
             self.inform = lambda *x, **xa: None
 
@@ -47,7 +47,7 @@ class Client:
             print("connecting")
             self.game_client = self.game.register(self, **msg_data)
             self.state = "connected"
-        elif self.game_client:
+        elif self.state == "connected":
             try:
                 handler = getattr(self.game_client, "do_{}".format(msg_type), lambda **foo: None)
             except AttributeError:
@@ -83,7 +83,8 @@ class Client:
         try:
             self.game.unregister(self)
         except:
-            pass
+            print("nicht gut")
+            raise
 
 
 class Server:
@@ -173,7 +174,7 @@ class Server:
                     new_client.handle_msg(msg)
             except ConnectionResetError as e:
                 print('ERROR: {}'.format(e))
-                traceback.print_exc()
+                # traceback.print_exc()
                 new_client.bye()
                 del self.clients[peername]
                 return
