@@ -28,6 +28,10 @@ class Game:
         for username, old_game_client in old_game.user_to_game_clients.items():
             self.user_to_game_clients[username] = GameClient(username, _old_client=old_game_client)
 
+    def inform_all(self, msg_type, data, from_id="__master__"):
+        for net_client in self.user_to_network_clients.items():
+            net_client.inform(msg_type, from_id, data)
+
     def register(self, network_client, username, password, **kw):
         print("register {}".format(username))
         # check or set password
@@ -76,3 +80,7 @@ class GameClient:
     def _init_from_old_client(self, old_client):
         self.name = old_client.name
         self.online = old_client.online
+
+    def do_shout(self, **foo):
+        print(foo)
+        return "RESHOUT", foo

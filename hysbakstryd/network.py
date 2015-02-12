@@ -19,7 +19,7 @@ class Client:
         self.game = game
         self.msg_buffer = []
 
-    def inform(self, msg_type, msg_data):
+    def inform(self, msg_type, msg_data, from_id="__master__"):
         try:
             self.writer.write(msgpack.packb((msg_type, msg_data)))
         except:
@@ -47,9 +47,9 @@ class Client:
             print("connecting")
             self.game_client = self.game.register(self, **msg_data)
             self.state = "connected"
-        else:
+        elif self.game_client:
             try:
-                handler = getattr(self, "do_{}".format(msg_type), lambda **foo: None)
+                handler = getattr(self.game_client, "do_{}".format(msg_type), lambda **foo: None)
             except AttributeError:
                 self.inform("ERR",
                     "The function ({}) you are calling is not available".format(msg_type))
@@ -57,7 +57,7 @@ class Client:
 
             if ret:
                 msg_type, *rest = ret
-                self.game.inform_all(msg_type, rest, from_id=self.id)
+                self.game.inform_all(msg_type, rest, from_id=self.game_client.name)
 
     def buffer_msg(self, msg):
         self.msg_buffer.append(msg)

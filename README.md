@@ -29,6 +29,23 @@ send
 }
 ```
 
+### Shout
+
+
+```
+{
+    "type": "shout",         # str, required
+    ... # all you want
+}
+```
+
+returns 
+
+```
+ ("RESHOUT", "username", {... # all you want})
+```
+
+
 ## Design choices
 
 ```
