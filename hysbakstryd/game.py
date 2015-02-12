@@ -69,7 +69,7 @@ class Game:
     def unregister(self, network_client):
         print("bye {}".format(network_client))
         username = self.network_to_user[network_client]
-        # self.user_to_game_clients[username].online = False
+        self.user_to_game_clients[username].online = False
         del self.user_to_network_clients[username]
         del self.network_to_user[network_client]
 
@@ -85,15 +85,26 @@ class GameClient:
     def __init__(self, username, observer=False, _old_client=None, **kw):
         self.name = username
         self.online = True
+        self.level = 0
+        self.levels = set([])
 
         if _old_client is not None:
             self._init_from_old_client(_old_client)
 
     def _init_from_old_client(self, old_client):
         print("renew client, {}".format(self.name))
+        self.__dict__.update(old_client.__dict__)
         self.name = old_client.name
         self.online = old_client.online
 
     def do_shout(self, **foo):
         print(self.name, foo)
         return "RESHOUT", foo
+
+    def do_set_level(self, level, **kw):
+        assert 0 <= level < 10
+        self.levels.add(level)
+
+    def do_set_direction(self, direction, **kw):
+        assert direction in ("up", "down")
+        self.direction = direction

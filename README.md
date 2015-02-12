@@ -45,7 +45,23 @@ returns
  ("RESHOUT", "username", {... # all you want})
 ```
 
+### set level
 
+```
+{
+    "type": "set_level",         # str, required
+    "level": 0                   # int, required, add a level where the elevator should halt
+}
+```
+
+### set direction
+
+```
+{
+    "type": "set_direction",         # str, required
+    "direction": 0                   # str ("up", "down"), required, sets the direction of the elevator
+}
+```
 ## Design choices
 
 ```
