@@ -15,6 +15,20 @@ pip install bcrypt msgpack-python
 python run.py
 ```
 
+## Packets
+
+### Login
+
+send 
+
+```
+{
+    "type": "connect",       # str, required
+    "username": "Hans",      # str, required
+    "password": "gehaim",    # str, required
+}
+```
+
 ## Design choices
 
 ```
