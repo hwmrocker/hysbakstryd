@@ -46,7 +46,7 @@ class Client:
             self.state = "connected"
         else:
             try:
-                handler = getattr(self, "do_{}".format(msg_type), lambda **foo, None)
+                handler = getattr(self, "do_{}".format(msg_type), lambda **foo: None)
             except AttributeError:
                 self.inform("ERR",
                     "The function ({}) you are calling is not available".format(msg_type))
