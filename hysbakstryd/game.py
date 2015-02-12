@@ -1,6 +1,6 @@
 from bcrypt import hashpw, gensalt
-
-__version__ = "0.0.3"
+import gc
+__version__ = "0.0.4"
 
 
 class WrongPassword(Exception):
@@ -28,6 +28,9 @@ class Game:
         for username, old_game_client in old_game.user_to_game_clients.items():
             self.user_to_game_clients[username] = GameClient(username, _old_client=old_game_client)
 
+        old_game.user_to_game_clients = {}
+        print(gc.collect())
+
     def inform_all(self, msg_type, data, from_id="__master__"):
         for net_client in self.user_to_network_clients.values():
             net_client.inform(msg_type, data, from_id=from_id)
@@ -40,11 +43,13 @@ class Game:
             if hashpw(bytes(password, "utf-8"), hashed) == hashed:
                 print("old password correct")
                 # yeah
+                pass
             else:
                 print("old password is different")
                 raise WrongPassword()
         else:
             print("new password")
+            pass
 
             self.user_to_passwords[username] = hashpw(bytes(password, "utf-8"), gensalt())
 
@@ -82,12 +87,13 @@ class GameClient:
         self.online = True
 
         if _old_client is not None:
-            self._init_from_old_client
+            self._init_from_old_client(_old_client)
 
     def _init_from_old_client(self, old_client):
+        print("renew client, {}".format(self.name))
         self.name = old_client.name
         self.online = old_client.online
 
     def do_shout(self, **foo):
-        print(foo)
+        print(self.name, foo)
         return "RESHOUT", foo

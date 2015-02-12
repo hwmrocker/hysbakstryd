@@ -23,6 +23,7 @@ class Client:
         try:
             self.writer.write(msgpack.packb((msg_type, from_id, msg_data)))
         except:
+            traceback.print_exc()
             self.inform = lambda *x, **xa: None
 
     def print_msg(self, msg):
@@ -53,7 +54,10 @@ class Client:
             except AttributeError:
                 self.inform("ERR",
                     "The function ({}) you are calling is not available".format(msg_type))
-            ret = handler(**msg_data)
+            try:
+                ret = handler(**msg_data)
+            except KeyError:
+                self.inform("TADEL", "DUDUDU")
 
             if ret:
                 msg_type, *rest = ret
@@ -136,6 +140,7 @@ class Server:
             asyncio.async(self.check_for_new_game())
         except OSError:
             print('Cannot bind to this port! Is the server already running?')
+            raise
 
     def send_to_client(self, peername, msg_type, msg_args):
         client = self.clients[peername]
@@ -187,6 +192,9 @@ class Server:
                 new_client.bye()
                 del self.clients[peername]
                 return
+            except:
+                print("_________________________________")
+                traceback.print_exc()
 
     def close(self):
         self.send_to_all_clients("bye\n")
