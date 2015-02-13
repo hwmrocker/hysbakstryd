@@ -2,6 +2,7 @@ import asyncio
 import msgpack
 import traceback
 import os
+import logging
 
 # we cannot use from .game import Game because we need to be able to reload it
 import hysbakstryd.game
@@ -20,12 +21,13 @@ class Client:
         self._state = None
         self.game = game
         self.msg_buffer = []
+        self.logger = logging
 
     def inform(self, msg_type, msg_data, from_id="__master__"):
         try:
             self.writer.write(msgpack.packb((msg_type, from_id, msg_data)))
         except:
-            traceback.print_exc()
+            self.logger.error(traceback.format_exc())
             self.inform = lambda *x, **xa: None
 
     def privacy_complaint_msg(self, msg):
@@ -35,58 +37,69 @@ class Client:
         return msg_copy
 
     def handle_msg(self, msg):
-        # self.privacy_complaint_msg(msg)
+        self.logger.debug("handle {}".format(self.privacy_complaint_msg(msg)))
         try:
             msg_type = msg["type"]
             msg_data = msg.copy()
             msg_data.pop("type")
         except KeyError:
+            self.logger.info("msg was not valid because it didn't contain a type key, it was rejected")
             self.inform("ERR", "messages should be a dict and contain a type {'type': 'a_string'}")
             return
 
         for key in msg_data.keys():
             if not isinstance(key, str):
+                self.logger.info("msg was not valid, it was rejected because a key was not of type str")
                 self.inform("ERR", "message keys should only be strings {'type': 'foo', 'bar': 'ok', 42: 'not ok'}")
                 return
 
         if self.state == "pause":
             self.buffer_msg(msg)
         elif self.state == "pending" and msg_type == "connect":
-            print("connecting")
+            self.logger.info("connecting")
+            # TODO we should put a try catch around the registering
             self.game_client = self.game.register(self, **msg_data)
+            self.logger = self.game_client.logger
             self.state = "connected"
+            self.logger.info("connected")
         elif self.state == "connected":
             try:
                 handler = getattr(self.game_client, "do_{}".format(msg_type), lambda **foo: None)
             except AttributeError:
-                self.inform("ERR",
-                    "The function ({}) you are calling is not available".format(msg_type))
+                error = "The function ({}) you are calling is not available".format(msg_type)
+                self.logger.warning(error)
+                self.inform("ERR", error)
             try:
                 ret = handler(**msg_data)
                 if ret:
                     msg_type, *rest = ret
+                    self.logger.debug("send: {} {}".format(msg_type, rest))
                     self.game.inform_all(msg_type, rest, from_id=self.game_client.name)
             except Exception as e:
                 error = 'Error while calling {}: {}'.format(msg_type, e)
                 traceback_data = traceback.format_exc()
-                print(error)
+
+                self.logger.error(error)
+                self.logger.error(traceback_data)
+
                 self.inform("ERR", error)
                 self.inform("TRACEBACK", traceback_data)
 
     def buffer_msg(self, msg):
         self.msg_buffer.append(msg)
 
-    def update_game(self, game):
-        assert self.state == "pause"
-        self.game = game
-
     def pause(self):
+        self.logger.info("pause client")
         self._state, self.state = self.state, "pause"
 
     def resume(self):
         assert self.state == "pause"
+        self.logger.info("resume client")
+
         self.state, self._state = self._state, None
 
+        if self.msg_buffer:
+            self.logger.info("flush buffer")
         # flush the buffer
         while (self.msg_buffer):
             msg = self.msg_buffer.pop(0)
@@ -97,7 +110,9 @@ class Client:
         try:
             self.game.unregister(self)
         except:
-            print("nicht gut")
+            # TODO check if this is always an error, maybe we should fix this in game.unregister and
+            # not catch it here
+            self.logger.error("unregister game failed")
             raise
 
 
@@ -127,12 +142,13 @@ class Server:
         while self.running:
             new_mtime = os.stat(file_path).st_mtime
             if new_mtime != old_mtime:
-                print("reload")
+                logging.info("reload")
                 self.pause_all_clients()
                 self.game.pause()
                 # actually reload game
                 reload(hysbakstryd.game)
-                self.game = hysbakstryd.game.Game(_old_game=self.game)
+                _game = hysbakstryd.game.Game(_old_game=self.game)
+                self.game = _game
                 self.game.resume()
                 self.resume_all_clients()
                 old_mtime = new_mtime
@@ -146,10 +162,10 @@ class Server:
                 self.client_connected,
                 self.host, self.port
             )
-            print('Running server on {}:{}'.format(self.host, self.port))
+            logging.info('Running server on {}:{}'.format(self.host, self.port))
             asyncio.async(self.check_for_new_game())
         except OSError:
-            print('Cannot bind to this port! Is the server already running?')
+            logging.error('Cannot bind to this port! Is the server already running?')
 
     def send_to_client(self, peername, msg_type, msg_args):
         client = self.clients[peername]
@@ -176,7 +192,7 @@ class Server:
     @asyncio.coroutine
     def client_connected(self, reader, writer):
         peername = writer.transport.get_extra_info('peername')
-        print("hallo {}".format(peername))
+        logging.info("hallo {}".format(peername))
         new_client = Client(reader, writer, self.game)
         self.clients[peername] = new_client
         unpacker = msgpack.Unpacker(encoding='utf-8')
@@ -187,19 +203,20 @@ class Server:
                 for msg in unpacker:
                     new_client.handle_msg(msg)
             except ConnectionResetError as e:
-                print('ERROR: {}'.format(e))
-                # traceback.print_exc()
+                logging.info('Connection Reset: {}'.format(e))
                 new_client.bye()
                 del self.clients[peername]
                 return
             except Exception as e:
                 error = 'ERROR: {}'.format(e)
                 traceback_data = traceback.format_exc()
-                print(error)
+                logging.critical(error)
+                logging.critical("This error should be catched in the client, not here")
+                logging.critical(traceback_data)
+
                 self.send_to_client(peername, "ERR", error)
                 self.send_to_client(peername, "TRACEBACK", traceback_data)
 
-                # traceback.print_exc()
                 new_client.writer.write_eof()
                 new_client.bye()
                 del self.clients[peername]

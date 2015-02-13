@@ -1,5 +1,6 @@
 import asyncio
 import msgpack
+import logging
 
 
 class NetworkClient:
@@ -16,7 +17,7 @@ class NetworkClient:
         self.writer = None
 
     def send_msg(self, msg):
-        print("send: {}".format(msg))
+        logging.info("send: {}".format(msg))
         pack = msgpack.packb(msg)
         self.writer.write(pack)
 
@@ -25,14 +26,14 @@ class NetworkClient:
             self.writer.write_eof()
 
     def inform(self, *msg):
-        print(msg)
+        logging.info(msg)
 
     @asyncio.coroutine
     def connect(self, username, password):
-        print('Connecting...')
+        logging.info('Connecting...')
         try:
             reader, writer = yield from asyncio.open_connection(self.host, self.port)
-            # asyncio.async(self.create_input())
+            asyncio.async(self.create_input())
             self.reader = reader
             self.writer = writer
             self.send_msg(dict(type="connect", username=username, password=password))
@@ -43,14 +44,31 @@ class NetworkClient:
                 unpacker.feed(pack)
                 for msg in unpacker:
                     self.inform(*msg)
-            print('The server closed the connection')
+            logging.info('The server closed the connection')
             self.writer = None
         except ConnectionRefusedError as e:
-            print('Connection refused: {}'.format(e))
+            logging.info('Connection refused: {}'.format(e))
         finally:
-            print("close ...")
+            logging.info("close ...")
             self.close()
 
+    @asyncio.coroutine
+    def create_input(self):
+        def watch_stdin():
+            msg = input()
+            return msg
+        while True:
+            mainloop = asyncio.get_event_loop()
+            future = mainloop.run_in_executor(None, watch_stdin)
+            input_message = yield from future
+            if input_message == 'close()' or not self.writer:
+                self.close()
+                break
+            elif input_message:
+                self.keyboardinput(input_message)
+
+    def keyboardinput(self, input_message):
+        pass
 
 class HWM(NetworkClient):
 
@@ -59,19 +77,27 @@ class HWM(NetworkClient):
         self.map = []
         self.ignore_list = []
 
-    def inform(self, msg_type, data):
+    def inform(self, msg_type, from_id, data):
         try:
             handler = getattr(self, "handle_{}".format(msg_type))
             ret = handler(data)
-            print("{}: {}".format(msg_type, ret))
+            logging.info("{}: {}, {}".format(from_id, msg_type, ret))
 
         except AttributeError:
             if msg_type not in self.ignore_list:
                 self.ignore_list.append(msg_type)
-                print("No handler for {}".format(msg_type))
+                logging.warning("No handler for {}".format(msg_type))
 
     def handle_ERR(self, data):
-        print(data)
+        logging.error(data)
+
+    def handle_TRACEBACK(self, data):
+        logging.error(data)
+
+    def handle_RESHOUT(self, data):
+        logging.info(data)
+    def keyboardinput(self, msg):
+        self.send_msg(dict(type="shout", msg=msg))
 
 
 def readshit():
