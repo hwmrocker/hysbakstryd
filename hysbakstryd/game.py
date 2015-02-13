@@ -1,5 +1,6 @@
 from bcrypt import hashpw, gensalt
-import gc
+from collections import defaultdict
+# import gc
 __version__ = "0.0.4"
 
 
@@ -14,6 +15,9 @@ class Game:
         self.user_to_game_clients = {}
         self.user_to_network_clients = {}
         self.network_to_user = {}
+        self.future_events = defaultdict(list)
+        self.time = 0
+        self.pause = False
         self.version = __version__
 
         if _old_game is not None:
@@ -21,15 +25,18 @@ class Game:
 
     def _init_from_old_game(self, old_game):
         print("init from old game v{} to New v{}".format(old_game.version, self.version))
-        self.user_to_passwords = old_game.user_to_passwords
-        self.user_to_network_clients = old_game.user_to_network_clients
-        self.network_to_user = old_game.network_to_user
-
-        for username, old_game_client in old_game.user_to_game_clients.items():
+        old_game_dict = old_game.__dict__
+        old_user_to_game_clients = old_game_dict.pop("user_to_game_clients")
+        for username, old_game_client in old_user_to_game_clients.items():
             self.user_to_game_clients[username] = GameClient(username, self, _old_client=old_game_client)
 
         old_game.user_to_game_clients = {}
-        print(gc.collect())
+
+        # self.__dict__.update is not ok, because we might want to delete some keys
+        for key in self.__dict__.keys():
+            if key in old_game_dict:
+                self.__dict__[key] = old_game_dict[key]
+        # print(gc.collect())
 
     def inform_all(self, msg_type, data, from_id="__master__"):
         for net_client in self.user_to_network_clients.values():
@@ -74,10 +81,14 @@ class Game:
         del self.network_to_user[network_client]
 
     def pause(self):
-        pass
+        self.pause = True
 
     def resume(self):
-        pass
+        self.pause = False
+
+    def tick(self):
+        if self.pause:
+            return
 
 
 class GameClient:
@@ -89,12 +100,16 @@ class GameClient:
         self.level = 0
         self.levels = set([])
         self.direction = "halt"
+        self.door = "closed"
         if _old_client is not None:
             self._init_from_old_client(_old_client)
 
     def _init_from_old_client(self, old_client):
         print("renew client, {}".format(self.name))
-        self.__dict__.update(old_client.__dict__)
+        # self.__dict__.update is not ok, because we might want to delete some keys
+        for key in self.__dict__.keys():
+            if key in old_client.__dict__:
+                self.__dict__[key] = old_client.__dict__[key]
 
     def do_shout(self, **foo):
         # print(self.name, foo)
@@ -104,18 +119,24 @@ class GameClient:
         assert 0 <= level < 10
         self.levels.add(level)
         # print("{} set level {}, current active levels = {}".format(self.name, level, self.levels))
+        return "LEVELS", self.levels
 
     def do_reset_level(self, **kw):
         self.levels = set([])
+        return "LEVELS", self.levels
 
     def do_open_door(self, direction, **kw):
         assert direction in ("up", "down")
         self.direction = direction
+        self.door = "open"
+        return "DOOR", self.door
 
     def do_close_door(self, **kw):
-        pass
+        self.door = "closed"
+        return "DOOR", self.door
 
     def do_set_direction(self, direction, **kw):
         assert direction in ("up", "down", "halt")
         self.direction = direction
-        print("{} set direction to {}".format(self.name, direction))
+        return "DIRECTION", self.direction
+        # print("{} set direction to {}".format(self.name, direction))

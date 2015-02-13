@@ -2,6 +2,8 @@ import asyncio
 import msgpack
 import traceback
 import os
+
+# we cannot use from .game import Game because we need to be able to reload it
 import hysbakstryd.game
 
 from importlib import reload
@@ -26,15 +28,14 @@ class Client:
             traceback.print_exc()
             self.inform = lambda *x, **xa: None
 
-    def print_msg(self, msg):
-        return
+    def privacy_complaint_msg(self, msg):
         msg_copy = msg.copy()
         if "password" in msg_copy:
             msg_copy["password"] = "****"
-        print("recv[{}]: {}".format(self.state, msg_copy))
+        return msg_copy
 
     def handle_msg(self, msg):
-        self.print_msg(msg)
+        # self.privacy_complaint_msg(msg)
         try:
             msg_type = msg["type"]
             msg_data = msg.copy()
@@ -42,6 +43,11 @@ class Client:
         except KeyError:
             self.inform("ERR", "messages should be a dict and contain a type {'type': 'a_string'}")
             return
+
+        for key in msg_data.keys():
+            if not isinstance(key, str):
+                self.inform("ERR", "message keys should only be strings {'type': 'foo', 'bar': 'ok', 42: 'not ok'}")
+                return
 
         if self.state == "pause":
             self.buffer_msg(msg)
@@ -57,12 +63,15 @@ class Client:
                     "The function ({}) you are calling is not available".format(msg_type))
             try:
                 ret = handler(**msg_data)
-            except KeyError:
-                self.inform("TADEL", "DUDUDU")
-
-            if ret:
-                msg_type, *rest = ret
-                self.game.inform_all(msg_type, rest, from_id=self.game_client.name)
+                if ret:
+                    msg_type, *rest = ret
+                    self.game.inform_all(msg_type, rest, from_id=self.game_client.name)
+            except Exception as e:
+                error = 'Error while calling {}: {}'.format(msg_type, e)
+                traceback_data = traceback.format_exc()
+                print(error)
+                self.inform("ERR", error)
+                self.inform("TRACEBACK", traceback_data)
 
     def buffer_msg(self, msg):
         self.msg_buffer.append(msg)
@@ -185,17 +194,17 @@ class Server:
                 return
             except Exception as e:
                 error = 'ERROR: {}'.format(e)
+                traceback_data = traceback.format_exc()
                 print(error)
-                traceback.print_exc()
                 self.send_to_client(peername, "ERR", error)
+                self.send_to_client(peername, "TRACEBACK", traceback_data)
+
+                # traceback.print_exc()
                 new_client.writer.write_eof()
                 new_client.bye()
                 del self.clients[peername]
                 return
-            except:
-                print("_________________________________")
-                traceback.print_exc()
 
     def close(self):
-        self.send_to_all_clients("bye\n")
+        self.send_to_all_clients("BYE", [])
         self.close_all_clients()
