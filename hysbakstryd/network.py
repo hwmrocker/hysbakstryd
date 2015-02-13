@@ -27,7 +27,7 @@ class Client:
         try:
             self.writer.write(msgpack.packb((msg_type, from_id, msg_data)))
         except:
-            traceback.print_exc()
+            self.logger.error(traceback.format_exc())
             self.inform = lambda *x, **xa: None
 
     def privacy_complaint_msg(self, msg):
