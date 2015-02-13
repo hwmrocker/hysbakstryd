@@ -28,7 +28,7 @@ class NetworkClient:
         print(msg)
 
     @asyncio.coroutine
-    def connect(self, username="hwm", password="foobar2"):
+    def connect(self, username, password):
         print('Connecting...')
         try:
             reader, writer = yield from asyncio.open_connection(self.host, self.port)
@@ -72,7 +72,6 @@ class HWM(NetworkClient):
 
     def handle_ERR(self, data):
         print(data)
-
 
 
 def readshit():
