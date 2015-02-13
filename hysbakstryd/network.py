@@ -2,6 +2,7 @@ import asyncio
 import msgpack
 import traceback
 import os
+import logging
 
 # we cannot use from .game import Game because we need to be able to reload it
 import hysbakstryd.game
@@ -20,6 +21,7 @@ class Client:
         self._state = None
         self.game = game
         self.msg_buffer = []
+        self.logger = logging
 
     def inform(self, msg_type, msg_data, from_id="__master__"):
         try:
@@ -54,6 +56,7 @@ class Client:
         elif self.state == "pending" and msg_type == "connect":
             print("connecting")
             self.game_client = self.game.register(self, **msg_data)
+            self.logger = self.game_client.logger
             self.state = "connected"
         elif self.state == "connected":
             try:
@@ -69,16 +72,15 @@ class Client:
             except Exception as e:
                 error = 'Error while calling {}: {}'.format(msg_type, e)
                 traceback_data = traceback.format_exc()
-                print(error)
+
+                self.logger.error(error)
+                self.logger.error(traceback_data)
+
                 self.inform("ERR", error)
                 self.inform("TRACEBACK", traceback_data)
 
     def buffer_msg(self, msg):
         self.msg_buffer.append(msg)
-
-    def update_game(self, game):
-        assert self.state == "pause"
-        self.game = game
 
     def pause(self):
         self._state, self.state = self.state, "pause"
@@ -132,7 +134,8 @@ class Server:
                 self.game.pause()
                 # actually reload game
                 reload(hysbakstryd.game)
-                self.game = hysbakstryd.game.Game(_old_game=self.game)
+                _game = hysbakstryd.game.Game(_old_game=self.game)
+                self.game = _game
                 self.game.resume()
                 self.resume_all_clients()
                 old_mtime = new_mtime

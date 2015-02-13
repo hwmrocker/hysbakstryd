@@ -32,7 +32,7 @@ class NetworkClient:
         print('Connecting...')
         try:
             reader, writer = yield from asyncio.open_connection(self.host, self.port)
-            # asyncio.async(self.create_input())
+            asyncio.async(self.create_input())
             self.reader = reader
             self.writer = writer
             self.send_msg(dict(type="connect", username="hwm", password="foobar2"))
@@ -51,6 +51,23 @@ class NetworkClient:
             print("close ...")
             self.close()
 
+    @asyncio.coroutine
+    def create_input(self):
+        def watch_stdin():
+            msg = input()
+            return msg
+        while True:
+            mainloop = asyncio.get_event_loop()
+            future = mainloop.run_in_executor(None, watch_stdin)
+            input_message = yield from future
+            if input_message == 'close()' or not self.writer:
+                self.close()
+                break
+            elif input_message:
+                self.keyboardinput(input_message)
+
+    def keyboardinput(self, input_message):
+        pass
 
 class HWM(NetworkClient):
 
@@ -59,11 +76,11 @@ class HWM(NetworkClient):
         self.map = []
         self.ignore_list = []
 
-    def inform(self, msg_type, data):
+    def inform(self, msg_type, from_id, data):
         try:
             handler = getattr(self, "handle_{}".format(msg_type))
             ret = handler(data)
-            print("{}: {}".format(msg_type, ret))
+            print("{}: {}, {}".format(from_id, msg_type, ret))
 
         except AttributeError:
             if msg_type not in self.ignore_list:
@@ -73,6 +90,14 @@ class HWM(NetworkClient):
     def handle_ERR(self, data):
         print(data)
 
+    def handle_TRACEBACK(self, data):
+        print(data)
+
+    def handle_RESHOUT(self, data):
+        print(data)
+
+    def keyboardinput(self, msg):
+        self.send_msg(dict(type="shout", msg=msg))
 
 if __name__ == "__main__":
     c = HWM()
