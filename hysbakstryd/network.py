@@ -1,8 +1,10 @@
 import asyncio
 import msgpack
 import traceback
-from .game import Game
+import os
+import hysbakstryd.game
 
+from importlib import reload
 
 class Client:
 
@@ -96,7 +98,30 @@ class Server:
         self.host = host
         self.port = port
         self.clients = {}
-        self.game = Game()
+        self.game = hysbakstryd.game.Game()
+        self.running = True
+
+    @asyncio.coroutine
+    def check_for_new_game(self):
+        directory = os.path.dirname(os.path.realpath(__file__))
+        file_path = os.path.join(directory, "game.py")
+
+        old_mtime = os.stat(file_path).st_mtime
+
+        while self.running:
+            new_mtime = os.stat(file_path).st_mtime
+            if new_mtime != old_mtime:
+                print("reload")
+                self.pause_all_clients()
+                # reload game
+                reload(hysbakstryd.game)
+                self.game.pause()
+                self.game = hysbakstryd.game.Game(_old_game=self.game)
+                self.game.resume()
+                self.resume_all_clients()
+                old_mtime = new_mtime
+
+            yield from asyncio.sleep(1)
 
     @asyncio.coroutine
     def run_server(self):
@@ -106,6 +131,7 @@ class Server:
                 self.host, self.port
             )
             print('Running server on {}:{}'.format(self.host, self.port))
+            asyncio.async(self.check_for_new_game())
         except OSError:
             print('Cannot bind to this port! Is the server already running?')
 
