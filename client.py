@@ -28,14 +28,14 @@ class NetworkClient:
         print(msg)
 
     @asyncio.coroutine
-    def connect(self):
+    def connect(self, username="hwm", password="foobar2"):
         print('Connecting...')
         try:
             reader, writer = yield from asyncio.open_connection(self.host, self.port)
             asyncio.async(self.create_input())
             self.reader = reader
             self.writer = writer
-            self.send_msg(dict(type="connect", username="hwm", password="foobar2"))
+            self.send_msg(dict(type="connect", username=username, password=password))
             self.sockname = writer.get_extra_info('sockname')
             unpacker = msgpack.Unpacker(encoding='utf-8')
             while not reader.at_eof():
@@ -99,10 +99,18 @@ class HWM(NetworkClient):
     def keyboardinput(self, msg):
         self.send_msg(dict(type="shout", msg=msg))
 
+
+def readshit():
+    shit = input()
+    c.keyboardinput(shit)
+
 if __name__ == "__main__":
+    import sys
+
     c = HWM()
     loop = asyncio.get_event_loop()
     try:
-        loop.run_until_complete(c.connect())
+        loop.add_reader(sys.stdin.fileno(), readshit)
+        loop.run_until_complete(c.connect(sys.argv[1], sys.argv[2]))
     finally:
         loop.close()
