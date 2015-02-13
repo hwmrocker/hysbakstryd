@@ -26,7 +26,7 @@ class Game:
         self.network_to_user = old_game.network_to_user
 
         for username, old_game_client in old_game.user_to_game_clients.items():
-            self.user_to_game_clients[username] = GameClient(username, _old_client=old_game_client)
+            self.user_to_game_clients[username] = GameClient(username, self, _old_client=old_game_client)
 
         old_game.user_to_game_clients = {}
         print(gc.collect())
@@ -54,7 +54,7 @@ class Game:
             self.user_to_passwords[username] = hashpw(bytes(password, "utf-8"), gensalt())
 
         if username not in self.user_to_game_clients:
-            self.user_to_game_clients[username] = GameClient(username, **kw)
+            self.user_to_game_clients[username] = GameClient(username, self, **kw)
         else:
             self.user_to_game_clients[username].online = True
             try:
@@ -82,29 +82,40 @@ class Game:
 
 class GameClient:
 
-    def __init__(self, username, observer=False, _old_client=None, **kw):
+    def __init__(self, username, game, observer=False, _old_client=None, **kw):
         self.name = username
+        self.game = game
         self.online = True
         self.level = 0
         self.levels = set([])
-
+        self.direction = "halt"
         if _old_client is not None:
             self._init_from_old_client(_old_client)
 
     def _init_from_old_client(self, old_client):
         print("renew client, {}".format(self.name))
         self.__dict__.update(old_client.__dict__)
-        self.name = old_client.name
-        self.online = old_client.online
 
     def do_shout(self, **foo):
-        print(self.name, foo)
+        # print(self.name, foo)
         return "RESHOUT", foo
 
     def do_set_level(self, level, **kw):
         assert 0 <= level < 10
         self.levels.add(level)
+        # print("{} set level {}, current active levels = {}".format(self.name, level, self.levels))
 
-    def do_set_direction(self, direction, **kw):
+    def do_reset_level(self, **kw):
+        self.levels = set([])
+
+    def do_open_door(self, direction, **kw):
         assert direction in ("up", "down")
         self.direction = direction
+
+    def do_close_door(self, **kw):
+        pass
+
+    def do_set_direction(self, direction, **kw):
+        assert direction in ("up", "down", "halt")
+        self.direction = direction
+        print("{} set direction to {}".format(self.name, direction))

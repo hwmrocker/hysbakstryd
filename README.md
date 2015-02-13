@@ -50,7 +50,7 @@ returns
 ```
 {
     "type": "set_level",         # str, required
-    "level": 0                   # int, required, add a level where the elevator should halt
+    "level": 0                   # int [0..9], required, add a level where the elevator should halt
 }
 ```
 

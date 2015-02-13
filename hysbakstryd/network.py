@@ -27,6 +27,7 @@ class Client:
             self.inform = lambda *x, **xa: None
 
     def print_msg(self, msg):
+        return
         msg_copy = msg.copy()
         if "password" in msg_copy:
             msg_copy["password"] = "****"
@@ -140,7 +141,6 @@ class Server:
             asyncio.async(self.check_for_new_game())
         except OSError:
             print('Cannot bind to this port! Is the server already running?')
-            raise
 
     def send_to_client(self, peername, msg_type, msg_args):
         client = self.clients[peername]
