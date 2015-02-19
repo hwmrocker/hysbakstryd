@@ -134,6 +134,8 @@ class Server:
         self.game = hysbakstryd.game.Game()
         self.running = True
 
+        asyncio.async(self.ticker())
+
     @asyncio.coroutine
     def check_for_new_game(self):
         directory = os.path.dirname(os.path.realpath(__file__))
@@ -174,6 +176,7 @@ class Server:
         while self.running:
             self.game.tick()
             yield from asyncio.sleep(TICK_TIME)
+        logger.error('TICKER STOPS')
 
     def send_to_client(self, peername, msg_type, msg_args):
         client = self.clients[peername]
