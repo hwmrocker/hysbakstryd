@@ -9,6 +9,8 @@ import hysbakstryd.game
 
 from importlib import reload
 
+TICK_TIME = 0.1
+
 
 class Client:
 
@@ -166,6 +168,12 @@ class Server:
             asyncio.async(self.check_for_new_game())
         except OSError:
             logging.error('Cannot bind to this port! Is the server already running?')
+
+    @asyncio.coroutine
+    def ticker(self):
+        while self.running:
+            self.game.tick()
+            yield from asyncio.sleep(TICK_TIME)
 
     def send_to_client(self, peername, msg_type, msg_args):
         client = self.clients[peername]
