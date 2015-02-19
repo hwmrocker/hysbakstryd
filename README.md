@@ -90,7 +90,7 @@ returns
     +-------+
 ```
 
-To make ``rapid`` development possible, I split the network communication part strictly from the game logic. After the `NetServer` (`hysbakstryd.network.Server`) is started, the `GameInstance` (`hysbakstryd.game.Game`) is spawend. After a scuccessfull `connect` to the server, a new `NetClient` (`hysbakstryd.network.Client`) is created, it will register to the game and a new `GameClient` is created. If the network connection from the client drops, it can reconnect with the same credentials to regain access to the coresponding game client. The client can disconnect / reconnect at any time without obstruct the server. At the same time, the network server is checking the filesystem if the code of the game (`hysbakstryd.game.py`) has changed, and will hot reload the code in a way that no connection will be dropped.
+To make ``rapid`` development possible, I split the network communication part strictly from the game logic. After the `NetServer` (`hysbakstryd.network.Server`) is started, the `GameInstance` (`hysbakstryd.game.Game`) is spawned. After a successful `connect` to the server, a new `NetClient` (`hysbakstryd.network.Client`) is created, it will register to the game and a new `GameClient` is created. If the network connection from the client drops, it can reconnect with the same credentials to regain access to the coresponding game client. The client can disconnect / reconnect at any time without obstruct the server. At the same time, the network server is checking the filesystem if the code of the game (`hysbakstryd.game.py`) has changed, and will hot reload the code in a way that no connection will be dropped.
 
 ## License
 
