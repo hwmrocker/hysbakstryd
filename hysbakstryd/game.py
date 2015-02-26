@@ -94,15 +94,15 @@ class Game:
 
     # duration of one game tick
     TICK_TIME = 0.1  # seconds
-        
+
     # MOVEMENT RATE FOR AN ELEVATOR IN EACH GAME TICK
-    RATE = 1  # levels per second 
+    RATE = 1  # levels per second
 
     MOVEMENT_PER_TICK = RATE * TICK_TIME
 
     # how long does an elevator wait when the door is opened?
     WAITING_TIME = 10 # ticks
-    
+
     # more game variables
 
     # person spawn rate
@@ -117,7 +117,7 @@ class Game:
     def move_client(self, c):
         if c.door == 'open':
             return
-        
+
         intlevel = round(c.level)
         if abs(c.level - intlevel) > self.MOVEMENT_PER_TICK:
             intlevel = None
@@ -146,7 +146,6 @@ class Game:
                 c.direction = 'halt'
             else:
                 c.level += self.MOVEMENT_PER_TICK
-    
 
     def wait_for_door(self, c):
         """
@@ -168,18 +167,15 @@ class Game:
             if c.direction == 'down' and all((l > c.level for l in c.levels)):
                 c.direction = 'up'
 
-            
     def tick(self):
         if self._pause:
             return
 
         self.time += 1
-        if self.time % 10 == 0:
-            logger.debug('tick {:010d}'.format(self.time))
 
         for c in self.user_to_game_clients.values():
             try:
-                # movement of cars
+                # movement of elevator boxes
                 self.move_client(c)
                 self.wait_for_door(c)
             except:
@@ -188,8 +184,6 @@ class Game:
             # self.load_people(c)
 
         # generate waiting people
-
-            
 
 
 class GameClient:
