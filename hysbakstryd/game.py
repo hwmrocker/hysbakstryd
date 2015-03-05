@@ -14,6 +14,25 @@ class WrongPassword(Exception):
 
 class Game:
 
+    # duration of one game tick
+    TICK_TIME = 0.1  # seconds
+
+    # MOVEMENT RATE FOR AN ELEVATOR IN EACH GAME TICK
+    RATE = 1  # levels per second
+
+    MOVEMENT_PER_TICK = RATE * TICK_TIME
+
+    # how long does an elevator wait when the door is opened?
+    WAITING_TIME = 10 # ticks
+
+    # more game variables
+
+    # person spawn rate
+    # max person spawn floor
+
+    MAX_FLOOR = 9
+    MIN_FLOOR = 0
+
     def __init__(self, _old_game=None):
         logger.info("New game instanciated")
         self.user_to_passwords = {}
@@ -92,28 +111,6 @@ class Game:
         logger.info('resuming')
         self._pause = False
 
-    # duration of one game tick
-    TICK_TIME = 0.1  # seconds
-
-    # MOVEMENT RATE FOR AN ELEVATOR IN EACH GAME TICK
-    RATE = 1  # levels per second
-
-    MOVEMENT_PER_TICK = RATE * TICK_TIME
-
-    # how long does an elevator wait when the door is opened?
-    WAITING_TIME = 10 # ticks
-
-    # more game variables
-
-    # person spawn rate
-    # max person spawn floor
-
-    # max floor
-    MAX_FLOOR = 9
-
-    # min floor
-    MIN_FLOOR = 0
-
     def move_client(self, c):
         if c.door == 'open':
             return
@@ -180,7 +177,7 @@ class Game:
                 self.wait_for_door(c)
             except:
                 import traceback
-                traceback.print_exc()
+                debug.error(traceback.print_exc())
             # self.load_people(c)
 
         # generate waiting people
