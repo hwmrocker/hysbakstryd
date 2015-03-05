@@ -44,6 +44,12 @@ class Game:
         self._pause = False
         self.version = __version__
 
+        self.plugins = set()
+        self.command_map = {}
+        self.event_map = {}
+
+        self.register_plugins()
+
         if _old_game is not None:
             self._init_from_old_game(_old_game)
 
@@ -164,6 +170,46 @@ class Game:
             if c.direction == 'down' and all((l > c.level for l in c.levels)):
                 c.direction = 'up'
 
+    def register_plugins(self):
+        self.register_plugin(MovementPhase1())
+        self.register_plugin(ShoutPlugin())
+        # TODO: load plugins dynamically?!
+
+        print(self.command_map)
+
+    def register_plugin(self, plugin):
+        # events
+        for event_method_name in [m for m in dir(plugin) if m.startswith('at_') and callable(getattr(plugin, m))]:
+            event_name = event_method_name[3:]
+            self.event_map[event_name] = getattr(plugin, event_method_name)
+
+        for command_method_name in [m for m in dir(plugin) if m.startswith('do_') and callable(getattr(plugin, m))]:
+            self.command_map[command_method_name[3:]] = getattr(plugin, command_method_name)
+
+        self.plugins.add(plugin)
+        plugin.initialize(self)
+        
+                
+    def emit(self, client, event_name, *args, **kwargs):
+        if event_name in self.event_map:
+            for c in self.clients:
+                self.event_map[event_name](client, *args, **kwargs)
+        else:
+            return
+
+    def handle(self, client, msg_type, msg_data):
+        if msg_type not in self.command_map:
+            print(msg_type, self.command_map.keys())
+            raise AttributeError
+
+        ret = self.command_map[msg_type](client, **msg_data)
+        
+        if ret:
+            msg_type, *rest = ret
+            logger.debug("send: {} {}".format(msg_type, rest))
+            self.inform_all(msg_type, rest, from_id=client.name)
+
+
     def tick(self):
         if self._pause:
             return
@@ -182,7 +228,118 @@ class Game:
 
         # generate waiting people
 
+        
+class Plugin:
+    """
+    Main plugin class for Hysbakstrid.
 
+    All methods whose name start with do_ will be registered as client commands that can
+    be sent data. Each command should return a set of methods to be added to the client
+    state. Each method will be called in each tick until it returns a non-True value, at
+    which point it will be removed from the client's states.
+
+    Additionally, the Plugin `tick` method will be called each tick with a set of all
+    clients and can perform time-based or global processing at that point.
+    """
+
+    def emit(self, client, event_name, *args, **kwargs):
+        """
+        Call this method when you want to emit an event (to all other plugins).
+        """
+
+        # TODO: implement
+
+    def initialize(self, game):
+        """
+        Called once when the game starts or the game reinitializes.
+        """
+        pass
+
+    def tick(self, clients):
+        """
+        Called every game tick with all currently registered clients.
+
+        Return a set of states that will be added to the client states. Each client state
+        is a function on the plugin that will be called each tick.
+        """
+        pass
+
+    
+
+
+class MovementPhase1(Plugin):
+    """
+    Movement mechanism.
+
+    Put your name in `client.movement_paused_by` (a set) to stop the elevator from
+    moving.
+
+    Will emit these events:
+     * `(moving, 'up'/'down')` when movement starts
+     * `(at_level, x)` when entering level x (pause movement and 'snap' to a level if you
+       want to stop there)
+     * `(movement_paused, )` when movement begins to be paused
+     * `(movement_unpaused, )` when movement ends to be paused
+     * `(stopped, )`, when the direction was set to 'halt'
+    """
+
+    def initialize(self, game):
+        pass
+
+    def connect(self, client):
+        client.movement_paused = False
+        client.levels = set()
+        client.direction = 'halt'
+
+    # states
+    def moving(self, client):
+        if client.movement_paused:
+            if not client.was_paused:
+                client.was_paused = True
+                self.emit('movement paused')
+            return
+        else:
+            if client.was_paused:
+                client.was_paused = False
+                self.emit('movement unpaused')
+
+        print("client would move, probably")
+
+
+    # event listeners
+    # no event listeners
+        
+    # commands
+        
+    def do_set_direction(self, client, direction=None):
+        assert direction in ("up", "down", "halt")
+        client.direction = direction
+        if direction == 'halt':
+            self.emit('stopped')
+        else:
+            self.emit('moving', (direction, ))
+        return (), ("DIRECTION", self.direction)
+
+    def do_set_level(self, client, level=None):
+        assert 0 <= level < 10
+        client.levels.add(level)
+        return (self.moving, ),  ("LEVELS", list(self.levels))
+    
+    def do_reset_levels(self, client):
+        client.levels = set()
+        return (), ("LEVELS", [])
+        
+class ShoutPlugin(Plugin):
+
+    def __init__(self):
+        self.logger = logger.getChild("ShoutPlugin")
+    
+    def do_shout(self, client, **foo):
+        self.logger.debug("{}: {}".format(client.name, foo))
+        return (), ("RESHOUT", foo)
+
+
+    
 class GameClient:
 
     def __init__(self, username, game, observer=False, _old_client=None, **kw):
@@ -215,16 +372,6 @@ class GameClient:
             if key in old_client.__dict__:
                 self.__dict__[key] = old_client.__dict__[key]
 
-    def do_shout(self, **foo):
-        self.logger.debug("{}: {}".format(self.name, foo))
-        return "RESHOUT", foo
-
-    def do_set_level(self, level, **kw):
-        assert 0 <= level < 10
-        self.levels.add(level)
-        # print("{} set level {}, current active levels = {}".format(self.name, level, self.levels))
-        return "LEVELS", list(self.levels)
-
     def do_reset_level(self, **kw):
         self.levels = set()
         return "LEVELS", self.levels
@@ -243,8 +390,4 @@ class GameClient:
     def do_get_state(self, **kw):
         return "STATUS", {'position': self.level, 'direction': self.direction, 'passengers': [], 'door': self.door, 'levels': list(self.levels)}
 
-    def do_set_direction(self, direction, **kw):
-        assert direction in ("up", "down", "halt")
-        self.direction = direction
-        return "DIRECTION", self.direction
-        # print("{} set direction to {}".format(self.name, direction))
+

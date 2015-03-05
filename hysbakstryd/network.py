@@ -66,17 +66,15 @@ class Client:
             self.logger.info("connected")
         elif self.state == "connected":
             try:
-                handler = getattr(self.game_client, "do_{}".format(msg_type), lambda **foo: None)
+                self.game.handle(self.game_client, msg_type, msg_data)
             except AttributeError:
                 error = "The function ({}) you are calling is not available".format(msg_type)
+
+                import traceback
+                traceback.print_exc()
+                
                 self.logger.warning(error)
                 self.inform("ERR", error)
-            try:
-                ret = handler(**msg_data)
-                if ret:
-                    msg_type, *rest = ret
-                    self.logger.debug("send: {} {}".format(msg_type, rest))
-                    self.game.inform_all(msg_type, rest, from_id=self.game_client.name)
             except Exception as e:
                 error = 'Error while calling {}: {}'.format(msg_type, e)
                 traceback_data = traceback.format_exc()
