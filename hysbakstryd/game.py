@@ -36,6 +36,7 @@ class Game:
     def __init__(self, _old_game=None):
         logger.info("New game instanciated")
         self.user_to_passwords = {}
+        self.game_clients = set()
         self.user_to_game_clients = {}
         self.user_to_network_clients = {}
         self.network_to_user = {}
@@ -96,9 +97,11 @@ class Game:
             self.user_to_game_clients[username].online = True
             try:
                 self.unregister(self.user_to_network_clients[username])
+                # TODO: WHY?!?
             except:
                 logger.info("unregister bei relogin ging nicht")
 
+        self.game_clients.add(self.user_to_game_clients[username])
         self.user_to_network_clients[username] = network_client
         self.network_to_user[network_client] = username
         return self.user_to_game_clients[username]
@@ -107,6 +110,7 @@ class Game:
         logger.info("bye {}".format(network_client))
         username = self.network_to_user[network_client]
         self.user_to_game_clients[username].online = False
+        self.game_clients.remove(self.user_to_game_clients[username])
         del self.user_to_network_clients[username]
         del self.network_to_user[network_client]
 
@@ -173,6 +177,7 @@ class Game:
     def register_plugins(self):
         self.register_plugin(MovementPhase1())
         self.register_plugin(ShoutPlugin())
+        self.register_plugin(HelpPlugin())
         # TODO: load plugins dynamically?!
 
         print(self.command_map)
@@ -188,27 +193,43 @@ class Game:
 
         self.plugins.add(plugin)
         plugin.initialize(self)
-        
-                
+
     def emit(self, client, event_name, *args, **kwargs):
         if event_name in self.event_map:
+            event = self.event_map[event_name]
             for c in self.clients:
-                self.event_map[event_name](client, *args, **kwargs)
+                event(client, *args, **kwargs)
         else:
             return
 
     def handle(self, client, msg_type, msg_data):
         if msg_type not in self.command_map:
+            logger.error("command not found: {} (from {})".format(
+                msg_type, client.name
+            ))
             print(msg_type, self.command_map.keys())
             raise AttributeError
 
         ret = self.command_map[msg_type](client, **msg_data)
-        
+                         
         if ret:
-            msg_type, *rest = ret
-            logger.debug("send: {} {}".format(msg_type, rest))
-            self.inform_all(msg_type, rest, from_id=client.name)
+            try:
+                add_states, direct, broadcast = ret
 
+                client.states.add(add_states)
+                if direct:
+                    self.user_to_network_clients[client.name].inform(*direct)
+
+                if broadcast:
+                    logger.debug("send: {} {}".format(msg_type, rest))
+                    self.inform_all(*broadcast, from_id=client.name)
+
+            except ValueError:
+                logger.debug('command {}({}) did not return correct format: {}'.format(
+                    msg_type, repr(msg_data),
+                    repr(ret),
+                ))
+            
 
     def tick(self):
         if self._pause:
@@ -216,17 +237,11 @@ class Game:
 
         self.time += 1
 
-        for c in self.user_to_game_clients.values():
-            try:
-                # movement of elevator boxes
-                self.move_client(c)
-                self.wait_for_door(c)
-            except:
-                import traceback
-                debug.error(traceback.print_exc())
-            # self.load_people(c)
+        for c in self.game_clients:
+            c.states = {state_f for state_f in c.states if state_f(c)}
 
-        # generate waiting people
+        for p in self.plugins:
+            p.tick(self.time, self.game_clients))
 
         
 class Plugin:
@@ -235,27 +250,34 @@ class Plugin:
 
     All methods whose name start with do_ will be registered as client commands that can
     be sent data. Each command should return a set of methods to be added to the client
-    state. Each method will be called in each tick until it returns a non-True value, at
+    state. Each state method will be called in each tick until it returns a non-True
+    value, at
     which point it will be removed from the client's states.
 
     Additionally, the Plugin `tick` method will be called each tick with a set of all
     clients and can perform time-based or global processing at that point.
+
+    # TODO: more documentation and show examples
     """
 
     def emit(self, client, event_name, *args, **kwargs):
         """
         Call this method when you want to emit an event (to all other plugins).
         """
+        self.game.emit(client, event_name, *args, **kwargs)
 
         # TODO: implement
 
     def initialize(self, game):
         """
         Called once when the game starts or the game reinitializes.
-        """
-        pass
 
-    def tick(self, clients):
+        Overwrite this with your own implementation to do stuff at game start/reload,but
+        don't forget to call super.
+        """
+        self.game = game
+
+    def tick(self, time, clients):
         """
         Called every game tick with all currently registered clients.
 
@@ -296,12 +318,12 @@ class MovementPhase1(Plugin):
         if client.movement_paused:
             if not client.was_paused:
                 client.was_paused = True
-                self.emit('movement paused')
+                self.emit('movement_paused')
             return
         else:
             if client.was_paused:
                 client.was_paused = False
-                self.emit('movement unpaused')
+                self.emit('movement_unpaused')
 
         print("client would move, probably")
 
@@ -318,26 +340,70 @@ class MovementPhase1(Plugin):
             self.emit('stopped')
         else:
             self.emit('moving', (direction, ))
-        return (), ("DIRECTION", self.direction)
+        return (), None, ("DIRECTION", self.direction)
 
     def do_set_level(self, client, level=None):
         assert 0 <= level < 10
         client.levels.add(level)
-        return (self.moving, ),  ("LEVELS", list(self.levels))
+        return (self.moving, ), None,  ("LEVELS", list(self.levels))
     
     def do_reset_levels(self, client):
         client.levels = set()
-        return (), ("LEVELS", [])
-        
+        return (), None, ("LEVELS", [])
+
+    
 class ShoutPlugin(Plugin):
+    """A simple plugin that lets each user send messages to all connected clients.
+
+    There is only a single command, `shout`, which accepts any number of keyword
+    arguments and echoes all of them to all players.
+    """
 
     def __init__(self):
         self.logger = logger.getChild("ShoutPlugin")
     
     def do_shout(self, client, **foo):
         self.logger.debug("{}: {}".format(client.name, foo))
-        return (), ("RESHOUT", foo)
+        return (), None, ("RESHOUT", foo)
 
+    
+class HelpPlugin(Plugin):
+    """
+    Show help on registered plugins.
+
+    Offers two commands:
+     * `help_plugins`: return to the calling client a list of plugins, or, when called
+       with a `plugin` argument, return the documentation on the loaded plugin.
+     * `help_command`: return to the calling client a list of commands, or, when called
+       with a `command` argument, return the documentation of the given command.
+    """
+
+    def do_help_plugin(self, plugin=None):
+        """
+        Return a list of plugins or documentation on a specific plugin (if given).
+        """
+        if not plugin:
+            return (), ('help for plugins', [p.__name__ for p in self.game.plugins]), None
+
+        plc = [p for p in self.game.plugins if p.__name__ == plugin]
+        if plc:
+            p = plc[0]
+            return (), ('help for plugin', p.__doc__), None
+
+        return (), None, None
+
+    def do_help_command(self, command=None):
+        """
+        Return a list of available commands or documentation on a specific command.
+        """
+        if command:
+            return (), ('help for commands', self.game.command_map.keys()), None
+
+        if command in self.game.command_map:
+            return (), ('help for command', self.game.command_map[command].__doc__), None
+        
+        return (), None, None
+    
 
     
 class GameClient:
@@ -346,6 +412,9 @@ class GameClient:
         self.name = username
         self.game = game
         self.online = True
+
+        self.states = set()
+        
         self.level = 0
         self.levels = set()
         self.direction = "halt"
