@@ -70,7 +70,6 @@ class Client:
             except AttributeError:
                 error = "The function ({}) you are calling is not available".format(msg_type)
 
-                import traceback
                 traceback.print_exc()
                 
                 self.logger.warning(error)

@@ -96,7 +96,7 @@ class Game:
         else:
             self.user_to_game_clients[username].online = True
             try:
-                self.unregister(self.user_to_network_clients[username])
+                 self.unregister(self.user_to_network_clients[username])
                 # TODO: WHY?!?
             except:
                 logger.info("unregister bei relogin ging nicht")
@@ -104,6 +104,10 @@ class Game:
         self.game_clients.add(self.user_to_game_clients[username])
         self.user_to_network_clients[username] = network_client
         self.network_to_user[network_client] = username
+
+        for p in self.plugins:
+            p.connect(self.user_to_game_clients[username])
+        
         return self.user_to_game_clients[username]
 
     def unregister(self, network_client):
@@ -120,6 +124,208 @@ class Game:
     def resume(self):
         logger.info('resuming')
         self._pause = False
+
+    def wait_for_door(self, c):
+        """
+        Wait for the appropriate time until the doors close again
+        """
+
+        # can the user close the doors themselves? Should we guard against that?
+
+        if c.door == 'open' and c._stopped_at + self.WAITING_TIME <= self.time:
+            c.door = 'closed'
+            if c.level in c.levels:
+                c.levels.remove(c.level)
+
+            if not c.levels:
+                c.direction = 'halt'
+
+            if c.direction == 'up' and all((l < c.level for l in c.levels)):
+                c.direction = 'down'
+            if c.direction == 'down' and all((l > c.level for l in c.levels)):
+                c.direction = 'up'
+
+    def register_plugins(self):
+        self.register_plugin(MovementPhase1())
+        self.register_plugin(ShoutPlugin())
+        self.register_plugin(HelpPlugin())
+        # TODO: load plugins dynamically?!
+
+    def register_plugin(self, plugin):
+        # events
+        for event_method_name in [m for m in dir(plugin) if m.startswith('at_') and callable(getattr(plugin, m))]:
+            event_name = event_method_name[3:]
+            self.event_map[event_name] = getattr(plugin, event_method_name)
+
+        for command_method_name in [m for m in dir(plugin) if m.startswith('do_') and callable(getattr(plugin, m))]:
+            self.command_map[command_method_name[3:]] = getattr(plugin, command_method_name)
+
+        self.plugins.add(plugin)
+        plugin.initialize(self)
+
+    def emit(self, client, event_name, *args, **kwargs):
+        if event_name in self.event_map:
+            event = self.event_map[event_name]
+            for c in self.clients:
+                event(client, *args, **kwargs)
+        else:
+            return
+
+    def handle(self, client, msg_type, msg_data):
+        if msg_type not in self.command_map:
+            logger.error("command not found: {} (from {})".format(
+                msg_type, client.name
+            ))
+            print(msg_type, self.command_map.keys())
+            self.username_to_network_client[client.username].inform(
+                'command_not_found',
+                {'msg': 'HE! Du Sackgesicht! Es gibt den Befehl "{}" nicht!'.format(msg_type)}
+            )
+            raise AttributeError
+
+        ret = self.command_map[msg_type](client, **msg_data)
+                         
+        if ret:
+            try:
+                add_states, direct, broadcast = ret
+
+                client.states.add(add_states)
+                if direct:
+                    self.user_to_network_clients[client.name].inform(*direct)
+
+                if broadcast:
+                    b_msg_type, b_rest = broadcast
+                    logger.debug("send: {} {}".format(b_msg_type, b_rest))
+                    self.inform_all(*broadcast, from_id=client.name)
+
+            except ValueError:
+                logger.debug('command {}({}) did not return correct format: {}'.format(
+                    msg_type, repr(msg_data),
+                    repr(ret),
+                ))
+            
+
+    def tick(self):
+        if self._pause:
+            return
+
+        self.time += 1
+
+        for c in self.game_clients:
+            c.states = {state_f for state_f in c.states if state_f(c)}
+
+        for p in self.plugins:
+            p.tick(self.time, self.game_clients)
+
+        
+class Plugin:
+    """
+    Main plugin class for Hysbakstrid.
+
+    All methods whose name start with do_ will be registered as client commands that can
+    be sent data. Each command should return a set of methods to be added to the client
+    state. Each state method will be called in each tick until it returns a non-True
+    value, at
+    which point it will be removed from the client's states.
+
+    Additionally, the Plugin `tick` method will be called each tick with a set of all
+    clients and can perform time-based or global processing at that point.
+
+    # TODO: more documentation and show examples
+    """
+
+    def connect(self, client):
+        pass
+
+    def emit(self, client, event_name, *args, **kwargs):
+        """
+        Call this method when you want to emit an event (to all other plugins).
+        """
+        self.game.emit(client, event_name, *args, **kwargs)
+
+        # TODO: implement
+
+    def initialize(self, game):
+        """
+        Called once when the game starts or the game reinitializes.
+
+        Overwrite this with your own implementation to do stuff at game start/reload,but
+        don't forget to call super.
+        """
+        self.game = game
+
+    def tick(self, time, clients):
+        """
+        Called every game tick with all currently registered clients.
+
+        Return a set of states that will be added to the client states. Each client state
+        is a function on the plugin that will be called each tick.
+        """
+        pass
+
+
+class ObserverPlugin(Plugin):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+    def do_observe(self, client):
+        return (self.observe, ), ('observe', 'started'), None
+
+    def do_get_state(self, client):
+        """Get the state of your own client."""
+        
+        return (), ('state', client.vars), None
+
+    def do_get_world_state(self, client):
+        """Get the state of every client."""
+
+        state = {c.username: c.vars for c in self.game.clients}
+        return (), ('state', state), None
+
+        
+    def observe(self, client):
+        self.game.username_to_network_client[client.username].inform(
+            'game_state', {c.username: c.vars for c in self.game.clients}
+        )
+
+
+
+class MovementPhase1(Plugin):
+    """
+    Movement mechanism.
+
+    Put your name in `client.movement_paused_by` (a set) to stop the elevator from
+    moving.
+
+    Will emit these events:
+     * `(moving, 'up'/'down')` when movement starts
+     * `(at_level, x)` when entering level x (pause movement and 'snap' to a level if you
+       want to stop there)
+     * `(movement_paused, )` when movement begins to be paused
+     * `(movement_unpaused, )` when movement ends to be paused
+     * `(stopped, )`, when the direction was set to 'halt'
+    """
+
+    def connect(self, client):
+        v = client.vars
+        v['levels'] = []
+        v['direction'] = 'halt'
+        client.movement_paused = False
+
+    # states
+    def moving(self, client):
+        if client.movement_paused:
+            if not client.was_paused:
+                client.was_paused = True
+                self.emit(client, 'movement_paused')
+            return
+        else:
+            if client.was_paused:
+                client.was_paused = False
+                self.emit(client, 'movement_unpaused')
+
+        print("client would move, probably")
 
     def move_client(self, c):
         if c.door == 'open':
@@ -154,201 +360,28 @@ class Game:
             else:
                 c.level += self.MOVEMENT_PER_TICK
 
-    def wait_for_door(self, c):
-        """
-        Wait for the appropriate time until the doors close again
-        """
-
-        # can the user close the doors themselves? Should we guard against that?
-
-        if c.door == 'open' and c._stopped_at + self.WAITING_TIME <= self.time:
-            c.door = 'closed'
-            if c.level in c.levels:
-                c.levels.remove(c.level)
-
-            if not c.levels:
-                c.direction = 'halt'
-
-            if c.direction == 'up' and all((l < c.level for l in c.levels)):
-                c.direction = 'down'
-            if c.direction == 'down' and all((l > c.level for l in c.levels)):
-                c.direction = 'up'
-
-    def register_plugins(self):
-        self.register_plugin(MovementPhase1())
-        self.register_plugin(ShoutPlugin())
-        self.register_plugin(HelpPlugin())
-        # TODO: load plugins dynamically?!
-
-        print(self.command_map)
-
-    def register_plugin(self, plugin):
-        # events
-        for event_method_name in [m for m in dir(plugin) if m.startswith('at_') and callable(getattr(plugin, m))]:
-            event_name = event_method_name[3:]
-            self.event_map[event_name] = getattr(plugin, event_method_name)
-
-        for command_method_name in [m for m in dir(plugin) if m.startswith('do_') and callable(getattr(plugin, m))]:
-            self.command_map[command_method_name[3:]] = getattr(plugin, command_method_name)
-
-        self.plugins.add(plugin)
-        plugin.initialize(self)
-
-    def emit(self, client, event_name, *args, **kwargs):
-        if event_name in self.event_map:
-            event = self.event_map[event_name]
-            for c in self.clients:
-                event(client, *args, **kwargs)
-        else:
-            return
-
-    def handle(self, client, msg_type, msg_data):
-        if msg_type not in self.command_map:
-            logger.error("command not found: {} (from {})".format(
-                msg_type, client.name
-            ))
-            print(msg_type, self.command_map.keys())
-            raise AttributeError
-
-        ret = self.command_map[msg_type](client, **msg_data)
-                         
-        if ret:
-            try:
-                add_states, direct, broadcast = ret
-
-                client.states.add(add_states)
-                if direct:
-                    self.user_to_network_clients[client.name].inform(*direct)
-
-                if broadcast:
-                    logger.debug("send: {} {}".format(msg_type, rest))
-                    self.inform_all(*broadcast, from_id=client.name)
-
-            except ValueError:
-                logger.debug('command {}({}) did not return correct format: {}'.format(
-                    msg_type, repr(msg_data),
-                    repr(ret),
-                ))
-            
-
-    def tick(self):
-        if self._pause:
-            return
-
-        self.time += 1
-
-        for c in self.game_clients:
-            c.states = {state_f for state_f in c.states if state_f(c)}
-
-        for p in self.plugins:
-            p.tick(self.time, self.game_clients))
-
         
-class Plugin:
-    """
-    Main plugin class for Hysbakstrid.
-
-    All methods whose name start with do_ will be registered as client commands that can
-    be sent data. Each command should return a set of methods to be added to the client
-    state. Each state method will be called in each tick until it returns a non-True
-    value, at
-    which point it will be removed from the client's states.
-
-    Additionally, the Plugin `tick` method will be called each tick with a set of all
-    clients and can perform time-based or global processing at that point.
-
-    # TODO: more documentation and show examples
-    """
-
-    def emit(self, client, event_name, *args, **kwargs):
-        """
-        Call this method when you want to emit an event (to all other plugins).
-        """
-        self.game.emit(client, event_name, *args, **kwargs)
-
-        # TODO: implement
-
-    def initialize(self, game):
-        """
-        Called once when the game starts or the game reinitializes.
-
-        Overwrite this with your own implementation to do stuff at game start/reload,but
-        don't forget to call super.
-        """
-        self.game = game
-
-    def tick(self, time, clients):
-        """
-        Called every game tick with all currently registered clients.
-
-        Return a set of states that will be added to the client states. Each client state
-        is a function on the plugin that will be called each tick.
-        """
-        pass
-
-    
-
-
-class MovementPhase1(Plugin):
-    """
-    Movement mechanism.
-
-    Put your name in `client.movement_paused_by` (a set) to stop the elevator from
-    moving.
-
-    Will emit these events:
-     * `(moving, 'up'/'down')` when movement starts
-     * `(at_level, x)` when entering level x (pause movement and 'snap' to a level if you
-       want to stop there)
-     * `(movement_paused, )` when movement begins to be paused
-     * `(movement_unpaused, )` when movement ends to be paused
-     * `(stopped, )`, when the direction was set to 'halt'
-    """
-
-    def initialize(self, game):
-        pass
-
-    def connect(self, client):
-        client.movement_paused = False
-        client.levels = set()
-        client.direction = 'halt'
-
-    # states
-    def moving(self, client):
-        if client.movement_paused:
-            if not client.was_paused:
-                client.was_paused = True
-                self.emit('movement_paused')
-            return
-        else:
-            if client.was_paused:
-                client.was_paused = False
-                self.emit('movement_unpaused')
-
-        print("client would move, probably")
-
-
     # event listeners
     # no event listeners
         
     # commands
-        
     def do_set_direction(self, client, direction=None):
         assert direction in ("up", "down", "halt")
-        client.direction = direction
+        client.vars['direction'] = direction
         if direction == 'halt':
-            self.emit('stopped')
+            self.emit(client, 'stopped')
         else:
-            self.emit('moving', (direction, ))
-        return (), None, ("DIRECTION", self.direction)
+            self.emit(client, 'moving', (direction, ))
+        return (), None, ("DIRECTION", client.vars['direction'])
 
     def do_set_level(self, client, level=None):
         assert 0 <= level < 10
-        client.levels.add(level)
-        return (self.moving, ), None,  ("LEVELS", list(self.levels))
+        if level not in client.vars['levels']:
+            client.vars['levels'].append(level)
+        return (self.moving, ), None,  ("LEVELS", client.vars['levels'])
     
     def do_reset_levels(self, client):
-        client.levels = set()
+        client.var['levels'] = []
         return (), None, ("LEVELS", [])
 
     
@@ -363,6 +396,9 @@ class ShoutPlugin(Plugin):
         self.logger = logger.getChild("ShoutPlugin")
     
     def do_shout(self, client, **foo):
+        """
+        Repeat the sent message to all connected clients.
+        """
         self.logger.debug("{}: {}".format(client.name, foo))
         return (), None, ("RESHOUT", foo)
 
@@ -378,31 +414,31 @@ class HelpPlugin(Plugin):
        with a `command` argument, return the documentation of the given command.
     """
 
-    def do_help_plugin(self, plugin=None):
+    def do_help_plugin(self, client, plugin=None):
         """
         Return a list of plugins or documentation on a specific plugin (if given).
         """
         if not plugin:
-            return (), ('help for plugins', [p.__name__ for p in self.game.plugins]), None
+            return (), ('help_for_plugins', [p.__class__.__name__ for p in self.game.plugins]), None
 
-        plc = [p for p in self.game.plugins if p.__name__ == plugin]
+        plc = [p for p in self.game.plugins if p.__class__.__name__ == plugin]
         if plc:
             p = plc[0]
-            return (), ('help for plugin', p.__doc__), None
+            return (), ('help_for_plugin', p.__doc__), None
 
         return (), None, None
 
-    def do_help_command(self, command=None):
+    def do_help_command(self, client, command=None):
         """
         Return a list of available commands or documentation on a specific command.
         """
-        if command:
-            return (), ('help for commands', self.game.command_map.keys()), None
+        if not command:
+            return (), ('help_for_commands', list(self.game.command_map.keys())), None
 
         if command in self.game.command_map:
-            return (), ('help for command', self.game.command_map[command].__doc__), None
+            return (), ('help_for_command', self.game.command_map[command].__doc__), None
         
-        return (), None, None
+        return (), ('help_for_command', 'command not found'), None
     
 
     
@@ -412,6 +448,8 @@ class GameClient:
         self.name = username
         self.game = game
         self.online = True
+
+        self.vars = {'username': username}
 
         self.states = set()
         
