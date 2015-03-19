@@ -47,7 +47,7 @@ class Game:
 
         self.plugins = set()
         self.command_map = {}
-        self.event_map = {}
+        self.event_map = defaultdict(list)
 
         self.register_plugins()
 
@@ -155,7 +155,7 @@ class Game:
         # events
         for event_method_name in [m for m in dir(plugin) if m.startswith('at_') and callable(getattr(plugin, m))]:
             event_name = event_method_name[3:]
-            self.event_map[event_name] = getattr(plugin, event_method_name)
+            self.event_map[event_name].append(getattr(plugin, event_method_name))
 
         for command_method_name in [m for m in dir(plugin) if m.startswith('do_') and callable(getattr(plugin, m))]:
             self.command_map[command_method_name[3:]] = getattr(plugin, command_method_name)
@@ -165,9 +165,10 @@ class Game:
 
     def emit(self, client, event_name, *args, **kwargs):
         if event_name in self.event_map:
-            event = self.event_map[event_name]
-            for c in self.clients:
-                event(client, *args, **kwargs)
+            # event = self.event_map[event_name]
+            for event in self.event_map[event_name]:
+                for c in self.clients:
+                    event(client, *args, **kwargs)
         else:
             return
 
