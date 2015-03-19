@@ -96,7 +96,7 @@ class Game:
         else:
             self.user_to_game_clients[username].online = True
             try:
-                 self.unregister(self.user_to_network_clients[username])
+                self.unregister(self.user_to_network_clients[username])
                 # TODO: WHY?!?
             except:
                 logger.info("unregister bei relogin ging nicht")
@@ -107,7 +107,7 @@ class Game:
 
         for p in self.plugins:
             p.connect(self.user_to_game_clients[username])
-        
+
         return self.user_to_game_clients[username]
 
     def unregister(self, network_client):
@@ -185,7 +185,7 @@ class Game:
             raise AttributeError
 
         ret = self.command_map[msg_type](client, **msg_data)
-                         
+
         if ret:
             try:
                 add_states, direct, broadcast = ret
@@ -200,11 +200,10 @@ class Game:
                     self.inform_all(*broadcast, from_id=client.name)
 
             except ValueError:
-                logger.debug('command {}({}) did not return correct format: {}'.format(
+                logger.debug('command {}({}) did not return correct format: {}\n should return (add_states, direct, broadcast)'.format(
                     msg_type, repr(msg_data),
                     repr(ret),
                 ))
-            
 
     def tick(self):
         if self._pause:
@@ -218,8 +217,9 @@ class Game:
         for p in self.plugins:
             p.tick(self.time, self.game_clients)
 
-        
+
 class Plugin:
+
     """
     Main plugin class for Hysbakstrid.
 
@@ -269,13 +269,13 @@ class ObserverPlugin(Plugin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-    
+
     def do_observe(self, client):
         return (self.observe, ), ('observe', 'started'), None
 
     def do_get_state(self, client):
         """Get the state of your own client."""
-        
+
         return (), ('state', client.vars), None
 
     def do_get_world_state(self, client):
@@ -284,15 +284,14 @@ class ObserverPlugin(Plugin):
         state = {c.username: c.vars for c in self.game.clients}
         return (), ('state', state), None
 
-        
     def observe(self, client):
         self.game.username_to_network_client[client.username].inform(
             'game_state', {c.username: c.vars for c in self.game.clients}
         )
 
 
-
 class MovementPhase1(Plugin):
+
     """
     Movement mechanism.
 
@@ -361,10 +360,9 @@ class MovementPhase1(Plugin):
             else:
                 c.level += self.MOVEMENT_PER_TICK
 
-        
     # event listeners
     # no event listeners
-        
+
     # commands
     def do_set_direction(self, client, direction=None):
         assert direction in ("up", "down", "halt")
@@ -380,13 +378,14 @@ class MovementPhase1(Plugin):
         if level not in client.vars['levels']:
             client.vars['levels'].append(level)
         return (self.moving, ), None,  ("LEVELS", client.vars['levels'])
-    
+
     def do_reset_levels(self, client):
         client.var['levels'] = []
         return (), None, ("LEVELS", [])
 
-    
+
 class ShoutPlugin(Plugin):
+
     """A simple plugin that lets each user send messages to all connected clients.
 
     There is only a single command, `shout`, which accepts any number of keyword
@@ -395,7 +394,7 @@ class ShoutPlugin(Plugin):
 
     def __init__(self):
         self.logger = logger.getChild("ShoutPlugin")
-    
+
     def do_shout(self, client, **foo):
         """
         Repeat the sent message to all connected clients.
@@ -403,8 +402,9 @@ class ShoutPlugin(Plugin):
         self.logger.debug("{}: {}".format(client.name, foo))
         return (), None, ("RESHOUT", foo)
 
-    
+
 class HelpPlugin(Plugin):
+
     """
     Show help on registered plugins.
 
@@ -438,11 +438,10 @@ class HelpPlugin(Plugin):
 
         if command in self.game.command_map:
             return (), ('help_for_command', self.game.command_map[command].__doc__), None
-        
-        return (), ('help_for_command', 'command not found'), None
-    
 
-    
+        return (), ('help_for_command', 'command not found'), None
+
+
 class GameClient:
 
     def __init__(self, username, game, observer=False, _old_client=None, **kw):
@@ -453,7 +452,6 @@ class GameClient:
         self.vars = {'username': username}
 
         self.states = set()
-        
         self.level = 0
         self.levels = set()
         self.direction = "halt"
@@ -497,5 +495,3 @@ class GameClient:
 
     def do_get_state(self, **kw):
         return "STATUS", {'position': self.level, 'direction': self.direction, 'passengers': [], 'door': self.door, 'levels': list(self.levels)}
-
-
