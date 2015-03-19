@@ -208,6 +208,7 @@ class Game:
                 ))
 
     def tick(self):
+        print("tick")
         if self._pause:
             return
 
@@ -317,6 +318,7 @@ class MovementPhase1(Plugin):
 
     # states
     def moving(self, client):
+        print("tick moving")
         if client.movement_paused:
             if not client.was_paused:
                 client.was_paused = True
@@ -330,6 +332,7 @@ class MovementPhase1(Plugin):
         print("client would move, probably")
 
     def move_client(self, c):
+        print("tick move")
         if c.door == 'open':
             return
 
