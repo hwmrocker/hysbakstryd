@@ -9,10 +9,10 @@ class NetworkClient:
     writer = None
     sockname = None
 
-    def __init__(self, host='127.0.0.1', port=8001):
+    def __init__(self, host='127.0.0.1', port=8001, **kw):
         super().__init__()
         self.host = host
-        self.port = port
+        self.port = int(port)
         self.reader = None
         self.writer = None
 
@@ -29,7 +29,7 @@ class NetworkClient:
         logging.info(msg)
 
     @asyncio.coroutine
-    def connect(self, username, password):
+    def connect(self, username, password, **kw):
         logging.info('Connecting...')
         try:
             reader, writer = yield from asyncio.open_connection(self.host, self.port)
@@ -96,6 +96,7 @@ class HWM(NetworkClient):
 
     def handle_RESHOUT(self, data):
         logging.info(data)
+
     def keyboardinput(self, msg):
         self.send_msg(dict(type="shout", msg=msg))
 
@@ -104,13 +105,34 @@ def readshit():
     shit = input()
     c.keyboardinput(shit)
 
+
+def load_config():
+    import yaml
+    try:
+        with open("config.yaml") as fh:
+            return yaml.load(fh.read())
+    except:
+        logging.error("Meh, keine defaults gefunden")
+        return {}
+
+
 if __name__ == "__main__":
     import sys
 
-    c = HWM()
     loop = asyncio.get_event_loop()
+    default_args = {
+        "host": "localhost",
+        "port": "8001",
+    }
+    default_args.update(load_config())
+    if len(sys.argv) >= 2:
+        default_args["username"] = sys.argv[1]
+    if len(sys.argv) >= 3:
+        default_args["password"] = sys.argv[2]
+
+    c = HWM(**default_args)
     try:
         loop.add_reader(sys.stdin.fileno(), readshit)
-        loop.run_until_complete(c.connect(sys.argv[1], sys.argv[2]))
+        loop.run_until_complete(c.connect(**default_args))
     finally:
         loop.close()
