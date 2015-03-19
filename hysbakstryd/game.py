@@ -190,7 +190,9 @@ class Game:
             try:
                 add_states, direct, broadcast = ret
 
-                client.states.add(add_states)
+                for new_state in add_states:
+                    client.states.add(new_state)
+
                 if direct:
                     self.user_to_network_clients[client.name].inform(*direct)
 
