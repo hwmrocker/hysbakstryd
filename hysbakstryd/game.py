@@ -480,20 +480,20 @@ class GameClient:
             if key in old_client.__dict__:
                 self.__dict__[key] = old_client.__dict__[key]
 
-    def do_reset_level(self, **kw):
-        self.levels = set()
-        return "LEVELS", self.levels
+    # def do_reset_level(self, **kw):
+    #     self.levels = set()
+    #     return "LEVELS", self.levels
 
-    def dont_do_open_door(self, direction, **kw):
-        assert direction in ("up", "down", "halt")
-        self._stopped_
-        self.direction = direction
-        self.door = "open"
-        return "DOOR", self.door
+    # def dont_do_open_door(self, direction, **kw):
+    #     assert direction in ("up", "down", "halt")
+    #     self._stopped_
+    #     self.direction = direction
+    #     self.door = "open"
+    #     return "DOOR", self.door
 
-    def dont_do_close_door(self, **kw):
-        self.door = "closed"
-        return "DOOR", self.door
+    # def dont_do_close_door(self, **kw):
+    #     self.door = "closed"
+    #     return "DOOR", self.door
 
-    def do_get_state(self, **kw):
-        return "STATUS", {'position': self.level, 'direction': self.direction, 'passengers': [], 'door': self.door, 'levels': list(self.levels)}
+    # def do_get_state(self, **kw):
+    #     return "STATUS", {'position': self.level, 'direction': self.direction, 'passengers': [], 'door': self.door, 'levels': list(self.levels)}
