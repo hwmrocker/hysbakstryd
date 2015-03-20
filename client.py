@@ -111,8 +111,11 @@ def load_config():
     try:
         with open("config.yaml") as fh:
             return yaml.load(fh.read())
+    except FileNotFoundError:
+        logging.info("Meh, keine config.yaml gefunden")
+        return {}
     except:
-        logging.error("Meh, keine defaults gefunden")
+        logging.info("Meh, config.yaml gefunden, kann aber nicht geladen werden, wird ignoriert.")
         return {}
 
 
