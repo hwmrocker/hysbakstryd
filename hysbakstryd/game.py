@@ -350,26 +350,25 @@ class MovementPhase1(Plugin):
         if abs(c.vars['level'] - intlevel) > self.MOVEMENT_PER_TICK:
             intlevel = None
 
-        if c.vars['direction'] == 'down':
-            if intlevel in c.vars['levels']:
-                c.vars['level'] = intlevel
-                c.vars['levels'].remove(intlevel)
-            elif c.vars['level'] <= self.MIN_FLOOR:
-                c.vars['level'] = self.MIN_FLOOR
-                self._halt()
-                return False
-            else:
-                c.vars['level'] -= self.MOVEMENT_PER_TICK
-        elif c.vars['direction'] == 'up':
-            if intlevel in c.vars['levels']:
-                c.vars['level'] = intlevel
-                c.vars['levels'].remove(intlevel)
-            elif c.vars['level'] >= self.MAX_FLOOR:
-                c.vars['level'] = self.MAX_FLOOR
-                self._halt()
-                return False
-            else:
-                c.vars['level'] += self.MOVEMENT_PER_TICK
+        if intlevel in c.vars['levels']:
+            c.vars['level'] = intlevel
+            c.vars['levels'].remove(intlevel)
+        else:
+            if c.vars['direction'] == 'down':
+                if c.vars['level'] <= self.MIN_FLOOR:
+                    c.vars['level'] = self.MIN_FLOOR
+                    self._halt()
+                    return False
+                else:
+                    c.vars['level'] -= self.MOVEMENT_PER_TICK
+
+            elif c.vars['direction'] == 'up':
+                if c.vars['level'] >= self.MAX_FLOOR:
+                    c.vars['level'] = self.MAX_FLOOR
+                    self._halt()
+                    return False
+                else:
+                    c.vars['level'] += self.MOVEMENT_PER_TICK
         return True
 
     # def wait_for_door(self, c):
