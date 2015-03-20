@@ -1,4 +1,5 @@
 import logging
+import traceback
 
 from bcrypt import hashpw, gensalt
 from collections import defaultdict
@@ -204,10 +205,11 @@ class Game:
                     self.inform_all(*broadcast, from_id=client.name)
 
             except ValueError:
-                logger.debug('command {}({}) did not return correct format: {}\n should return (add_states, direct, broadcast)'.format(
+                logger.warning('command {}({}) did not return correct format: {}'.format(
                     msg_type, repr(msg_data),
                     repr(ret),
                 ))
+                logger.info("it should return (add_states, direct, broadcast)")
 
     def tick(self):
         print("tick")
@@ -217,10 +219,24 @@ class Game:
         self.time += 1
 
         for c in self.game_clients:
-            c.states = {state_f for state_f in c.states if state_f(c)}
+            # unfortunatelly we need to try-except every sate
+            # if one plugin fail, other should still be executed
+            new_states = set()
+            for state_f in c.states:
+                try:
+                    if state_f(c):
+                        new_states.add(state_f)
+                except Exception:
+                    logger.error("State {} raised an exception".format(state_f.__name__))
+                    logger.error(traceback.format_exc())
+            c.states = new_states
 
         for p in self.plugins:
-            p.tick(self.time, self.game_clients)
+            try:
+                p.tick(self.time, self.game_clients)
+            except Exception:
+                logger.info("Plugin {} tick failed ".format(p.__class__.__name__))
+                logger.error(traceback.format_exc())
 
 
 class Plugin:
