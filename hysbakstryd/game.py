@@ -5,7 +5,7 @@ from bcrypt import hashpw, gensalt
 from collections import defaultdict
 # import gc
 
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 logger = logging.getLogger("game")
 
 
@@ -13,15 +13,11 @@ class WrongPassword(Exception):
     pass
 
 
+TICK_TIME = 0.1  # seconds
+
 class Game:
 
     # duration of one game tick
-    TICK_TIME = 0.1  # seconds
-
-    # MOVEMENT RATE FOR AN ELEVATOR IN EACH GAME TICK
-    RATE = 1  # levels per second
-
-    MOVEMENT_PER_TICK = RATE * TICK_TIME
 
     # how long does an elevator wait when the door is opened?
     WAITING_TIME = 10 # ticks
@@ -30,9 +26,6 @@ class Game:
 
     # person spawn rate
     # max person spawn floor
-
-    MAX_FLOOR = 9
-    MIN_FLOOR = 0
 
     def __init__(self, _old_game=None):
         logger.info("New game instanciated")
@@ -128,26 +121,6 @@ class Game:
         logger.info('resuming')
         self._pause = False
 
-    def wait_for_door(self, c):
-        """
-        Wait for the appropriate time until the doors close again
-        """
-
-        # can the user close the doors themselves? Should we guard against that?
-
-        if c.door == 'open' and c._stopped_at + self.WAITING_TIME <= self.time:
-            c.door = 'closed'
-            if c.level in c.levels:
-                c.levels.remove(c.level)
-
-            if not c.levels:
-                c.direction = 'halt'
-
-            if c.direction == 'up' and all((l < c.level for l in c.levels)):
-                c.direction = 'down'
-            if c.direction == 'down' and all((l > c.level for l in c.levels)):
-                c.direction = 'up'
-
     def register_plugins(self):
         self.register_plugin(MovementPhase1())
         self.register_plugin(ShoutPlugin())
@@ -212,7 +185,6 @@ class Game:
                 logger.info("it should return (add_states, direct, broadcast)")
 
     def tick(self):
-        print("tick")
         if self._pause:
             return
 
@@ -224,8 +196,17 @@ class Game:
             new_states = set()
             for state_f in c.states:
                 try:
-                    if state_f(c):
+                    ret = state_f(c)
+                    if ret == True:
                         new_states.add(state_f)
+                    elif callable(ret):
+                        new_states.add(ret)
+                    elif ret:
+                        for new_state in ret:
+                            if callable(new_state):
+                                new_states.add(new_state)
+                            else:
+                                logger.warning("new_state {} is not callable".format(new_state))
                 except Exception:
                     logger.error("State {} raised an exception".format(state_f.__name__))
                     logger.error(traceback.format_exc())
@@ -313,6 +294,14 @@ class ObserverPlugin(Plugin):
 
 class MovementPhase1(Plugin):
 
+    # MOVEMENT RATE FOR AN ELEVATOR IN EACH GAME TICK
+    RATE = 1  # levels per second
+
+    MOVEMENT_PER_TICK = RATE * TICK_TIME
+
+    MAX_FLOOR = 9
+    MIN_FLOOR = 0
+
     """
     Movement mechanism.
 
@@ -331,75 +320,105 @@ class MovementPhase1(Plugin):
     def connect(self, client):
         v = client.vars
         v['levels'] = []
+        v['level'] = 0.
         v['direction'] = 'halt'
-        client.movement_paused = False
+        client.movement_paused = True
+        client.was_paused = True
 
     # states
     def moving(self, client):
         print("tick moving")
+        print("client.movement_paused {}".format(client.movement_paused))
+        print("client.was_paused {}".format(client.was_paused))
         if client.movement_paused:
             if not client.was_paused:
                 client.was_paused = True
                 self.emit(client, 'movement_paused')
-            return
+            return False
         else:
             if client.was_paused:
                 client.was_paused = False
                 self.emit(client, 'movement_unpaused')
 
         print("client would move, probably")
+        return self.move_client
 
     def move_client(self, c):
-        print("tick move")
-        if c.door == 'open':
-            return
+        print("tick move, {} {}".format(c.name, c.vars))
 
-        intlevel = round(c.level)
-        if abs(c.level - intlevel) > self.MOVEMENT_PER_TICK:
+        intlevel = round(c.vars['level'])
+        if abs(c.vars['level'] - intlevel) > self.MOVEMENT_PER_TICK:
             intlevel = None
 
-        if c.direction == 'down':
-            if intlevel in c.levels:
-                c.level = intlevel
-                c.levels.remove(intlevel)
-                c.door = 'open'
-                c._stopped_at = self.time
-                logger.debug('{} stopped at {}'.format(c.name, c.level))
-            elif c.level <= self.MIN_FLOOR:
-                c.direction = 'halt'
-                c.level = self.MIN_FLOOR
+        if c.vars['direction'] == 'down':
+            if intlevel in c.vars['levels']:
+                c.vars['level'] = intlevel
+                c.vars['levels'].remove(intlevel)
+            elif c.vars['level'] <= self.MIN_FLOOR:
+                c.vars['level'] = self.MIN_FLOOR
+                self._halt()
+                return False
             else:
-                c.level -= self.MOVEMENT_PER_TICK
-        elif c.direction == 'up':
-            if intlevel in c.levels:
-                c.level = intlevel
-                c.levels.remove(intlevel)
-                c.door = 'open'
-                c._stopped_at = self.time
-                logger.debug('{} stopped at {}'.format(c.name, c.level))
-            elif c.level >= self.MAX_FLOOR:
-                c.level = self.MAX_FLOOR
-                c.direction = 'halt'
+                c.vars['level'] -= self.MOVEMENT_PER_TICK
+        elif c.vars['direction'] == 'up':
+            if intlevel in c.vars['levels']:
+                c.vars['level'] = intlevel
+                c.vars['levels'].remove(intlevel)
+            elif c.vars['level'] >= self.MAX_FLOOR:
+                c.vars['level'] = self.MAX_FLOOR
+                self._halt()
+                return False
             else:
-                c.level += self.MOVEMENT_PER_TICK
+                c.vars['level'] += self.MOVEMENT_PER_TICK
+        return True
+
+    # def wait_for_door(self, c):
+    #     """
+    #     Wait for the appropriate time until the doors close again
+    #     """
+
+    #     # can the user close the doors themselves? Should we guard against that?
+
+    #     if c.door == 'open' and c._stopped_at + self.WAITING_TIME <= client.game.time:
+    #         c.door = 'closed'
+    #         if c.level in c.levels:
+    #             c.levels.remove(c.level)
+
+    #         if not c.levels:
+    #             self._halt()
+
+    #         if c.direction == 'up' and all((l < c.level for l in c.levels)):
+    #             c.direction = 'down'
+    #         if c.direction == 'down' and all((l > c.level for l in c.levels)):
+    #             c.direction = 'up'
 
     # event listeners
     # no event listeners
+
+    def _check_moving(self, client):
+        if client.vars['levels'] and client.vars['direction'] != "halt":
+            client.movement_paused = False
+            self.emit(client, 'moving', (client.vars['direction'], ))
+
+    def _halt(self, client):
+        client.vars['direction'] = "halt"
+        self.emit(client, 'stopped')
 
     # commands
     def do_set_direction(self, client, direction=None):
         assert direction in ("up", "down", "halt")
         client.vars['direction'] = direction
         if direction == 'halt':
-            self.emit(client, 'stopped')
+            self._halt(client)
         else:
-            self.emit(client, 'moving', (direction, ))
-        return (), None, ("DIRECTION", client.vars['direction'])
+            self._check_moving(client)
+        return (self.moving, ), None, ("DIRECTION", client.vars['direction'])
 
     def do_set_level(self, client, level=None):
         assert 0 <= level < 10
         if level not in client.vars['levels']:
             client.vars['levels'].append(level)
+            self._check_moving(client)
         return (self.moving, ), None,  ("LEVELS", client.vars['levels'])
 
     def do_reset_levels(self, client):

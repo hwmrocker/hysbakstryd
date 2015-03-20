@@ -103,6 +103,7 @@ class HWM(NetworkClient):
         import time
         time.sleep(1)
         self.send_msg(dict(type="set_level", level=5))
+        self.send_msg(dict(type="set_direction", direction="up"))
 
     def handle_LEVELS(self, data):
         pass
