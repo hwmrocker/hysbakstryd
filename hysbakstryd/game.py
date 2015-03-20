@@ -144,6 +144,7 @@ class Game:
             # event = self.event_map[event_name]
             for event in self.event_map[event_name]:
                 for c in self.clients:
+                    # TODO: FIXME: why is the event emited for each client but not a parameter?
                     event(client, *args, **kwargs)
         else:
             return
