@@ -54,7 +54,6 @@ class Game:
         for key in self.__dict__.keys():
             if key in old_game_dict:
                 self.__dict__[key] = old_game_dict[key]
-        # print(gc.collect())
 
     def inform_all(self, msg_type, data, from_id="__master__"):
         for net_client in self.user_to_network_clients.values():
@@ -326,10 +325,6 @@ class MovementPhase1(Plugin):
 
     # states
     def moving(self, client):
-        print("tick moving")
-        print("client.movement_paused {}".format(client.movement_paused))
-        print("client.was_paused {}".format(client.was_paused))
-
         # TODO refactor this, maybe use pause/unpause helper functions
         if client.movement_paused:
             if not client.was_paused:
@@ -345,8 +340,6 @@ class MovementPhase1(Plugin):
         return self.move_client
 
     def move_client(self, c):
-        print("tick move, {} {}".format(c.name, c.vars))
-
         intlevel = round(c.vars['level'])
         if abs(c.vars['level'] - intlevel) > self.MOVEMENT_PER_TICK:
             intlevel = None
@@ -376,10 +369,8 @@ class MovementPhase1(Plugin):
         """
         open door and wait
         """
-        print("tick open door, {} {}".format(c.name, c.vars))
 
         # can the user close the doors themselves? Should we guard against that?
-
         c.vars['door'] = 'open'
         c.movement_paused = False
         self.emit(c, "movement_open", c.vars['level'])
@@ -398,7 +389,6 @@ class MovementPhase1(Plugin):
         """
         close the, and check if and where to move
         """
-        print("tick open door, {} {}".format(c.name, c.vars))
 
         # can the user close the doors themselves? Should we guard against that?
         c.vars['door'] = 'closed'
