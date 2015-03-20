@@ -99,6 +99,14 @@ class HWM(NetworkClient):
     def handle_RESHOUT(self, data):
         logging.info(data)
 
+    def handle_WELCOME(self, data):
+        import time
+        time.sleep(1)
+        self.send_msg(dict(type="set_level", level=5))
+
+    def handle_LEVELS(self, data):
+        pass
+
     def keyboardinput(self, msg):
         # foo = ['MovementPhase1', 'ShoutPlugin', 'HelpPlugin']
         if len(msg) > 1:

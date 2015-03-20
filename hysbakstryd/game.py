@@ -108,6 +108,8 @@ class Game:
         for p in self.plugins:
             p.connect(self.user_to_game_clients[username])
 
+        self.inform_all("WELCOME", username)
+
         return self.user_to_game_clients[username]
 
     def unregister(self, network_client):
