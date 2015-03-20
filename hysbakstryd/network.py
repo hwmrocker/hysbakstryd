@@ -130,7 +130,7 @@ class Server:
         self.clients = {}
         self.game = hysbakstryd.game.Game()
         self.running = True
-
+        self.loop = loop
         asyncio.async(self.ticker())
 
     @asyncio.coroutine
@@ -171,7 +171,7 @@ class Server:
     @asyncio.coroutine
     def ticker(self):
         while self.running:
-            self.game.tick()
+            self.loop.call_soon(self.game.tick)
             yield from asyncio.sleep(TICK_TIME)
         logger.error('TICKER STOPS')
 
