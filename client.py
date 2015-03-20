@@ -104,6 +104,9 @@ class HWM(NetworkClient):
         time.sleep(1)
         self.send_msg(dict(type="set_level", level=5))
         self.send_msg(dict(type="set_direction", direction="up"))
+        time.sleep(2)
+        self.send_msg(dict(type="set_level", level=1))
+        self.send_msg(dict(type="set_level", level=4))
 
     def handle_LEVELS(self, data):
         pass

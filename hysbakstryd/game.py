@@ -13,19 +13,11 @@ class WrongPassword(Exception):
     pass
 
 
+# duration of one game tick
 TICK_TIME = 0.1  # seconds
 
+
 class Game:
-
-    # duration of one game tick
-
-    # how long does an elevator wait when the door is opened?
-    WAITING_TIME = 10 # ticks
-
-    # more game variables
-
-    # person spawn rate
-    # max person spawn floor
 
     def __init__(self, _old_game=None):
         logger.info("New game instanciated")
@@ -39,6 +31,7 @@ class Game:
         self._pause = False
         self.version = __version__
 
+        # as soon as the call order is important, we need to change self.plugins to a list
         self.plugins = set()
         self.command_map = {}
         self.event_map = defaultdict(list)
@@ -303,6 +296,8 @@ class MovementPhase1(Plugin):
     MAX_FLOOR = 9
     MIN_FLOOR = 0
 
+    # how long does an elevator wait when the door is opened?
+    WAITING_TIME = 10 # ticks
     """
     Movement mechanism.
 
@@ -313,6 +308,8 @@ class MovementPhase1(Plugin):
      * `(moving, 'up'/'down')` when movement starts
      * `(at_level, x)` when entering level x (pause movement and 'snap' to a level if you
        want to stop there)
+     * `(movement_open, level)` when door opened
+     * `(movement_closed, level)` when door closed
      * `(movement_paused, )` when movement begins to be paused
      * `(movement_unpaused, )` when movement ends to be paused
      * `(stopped, )`, when the direction was set to 'halt'
@@ -323,6 +320,7 @@ class MovementPhase1(Plugin):
         v['levels'] = []
         v['level'] = 0.
         v['direction'] = 'halt'
+        v['door'] = 'closed'
         client.movement_paused = True
         client.was_paused = True
 
@@ -331,6 +329,8 @@ class MovementPhase1(Plugin):
         print("tick moving")
         print("client.movement_paused {}".format(client.movement_paused))
         print("client.was_paused {}".format(client.was_paused))
+
+        # TODO refactor this, maybe use pause/unpause helper functions
         if client.movement_paused:
             if not client.was_paused:
                 client.was_paused = True
@@ -354,55 +354,85 @@ class MovementPhase1(Plugin):
         if intlevel in c.vars['levels']:
             c.vars['level'] = intlevel
             c.vars['levels'].remove(intlevel)
+            c.vars['_stopped_at'] = c.game.time
+            return self.open_door
         else:
             if c.vars['direction'] == 'down':
                 if c.vars['level'] <= self.MIN_FLOOR:
                     c.vars['level'] = self.MIN_FLOOR
-                    self._halt()
-                    return False
+                    return self._halt()
                 else:
                     c.vars['level'] -= self.MOVEMENT_PER_TICK
 
             elif c.vars['direction'] == 'up':
                 if c.vars['level'] >= self.MAX_FLOOR:
                     c.vars['level'] = self.MAX_FLOOR
-                    self._halt()
-                    return False
+                    return self._halt()
                 else:
                     c.vars['level'] += self.MOVEMENT_PER_TICK
         return True
 
-    # def wait_for_door(self, c):
-    #     """
-    #     Wait for the appropriate time until the doors close again
-    #     """
+    def open_door(self, c):
+        """
+        open door and wait
+        """
+        print("tick open door, {} {}".format(c.name, c.vars))
 
-    #     # can the user close the doors themselves? Should we guard against that?
+        # can the user close the doors themselves? Should we guard against that?
 
-    #     if c.door == 'open' and c._stopped_at + self.WAITING_TIME <= client.game.time:
-    #         c.door = 'closed'
-    #         if c.level in c.levels:
-    #             c.levels.remove(c.level)
+        c.vars['door'] = 'open'
+        c.movement_paused = False
+        self.emit(c, "movement_open", c.vars['level'])
+        return self.wait_for_people
 
-    #         if not c.levels:
-    #             self._halt()
+    def wait_for_people(self, c):
+        """
+        Wait for the appropriate time until the doors close again
+        """
+        if c.vars['_stopped_at'] + self.WAITING_TIME >= c.game.time:
+            return True
 
-    #         if c.direction == 'up' and all((l < c.level for l in c.levels)):
-    #             c.direction = 'down'
-    #         if c.direction == 'down' and all((l > c.level for l in c.levels)):
-    #             c.direction = 'up'
+        return self.close_door
 
-    # event listeners
-    # no event listeners
+    def close_door(self, c):
+        """
+        close the, and check if and where to move
+        """
+        print("tick open door, {} {}".format(c.name, c.vars))
+
+        # can the user close the doors themselves? Should we guard against that?
+        c.vars['door'] = 'closed'
+        self.emit(c, "movement_closed", c.vars['level'])
+
+        # This should rarely be the case, but we should check it
+        if c.vars['level'] in c.vars['levels']:
+            c.vars['levels'].remove(c.vars['level'])
+
+        if not c.vars['levels']:
+            return self._halt(c)
+
+        if c.vars['direction'] == 'up' and all((l < c.vars['level'] for l in c.vars['levels'])):
+            c.vars['direction'] = 'down'
+        if c.vars['direction'] == 'down' and all((l > c.vars['level'] for l in c.vars['levels'])):
+            c.vars['direction'] = 'up'
+        return self._check_moving(c)
+
+    # state _helper functions (this funtions return suggested new states)
 
     def _check_moving(self, client):
         if client.vars['levels'] and client.vars['direction'] != "halt":
             client.movement_paused = False
             self.emit(client, 'moving', (client.vars['direction'], ))
+            return self.move_client
+        return False
 
     def _halt(self, client):
         client.vars['direction'] = "halt"
         self.emit(client, 'stopped')
+        return False
+
+    # event listeners
+    # no event listeners
 
     # commands
     def do_set_direction(self, client, direction=None):
