@@ -130,7 +130,11 @@ class Game:
 
     def emit(self, client, event_name, *args, **kwargs):
         for plugin in self.plugins:
-            plugin.take(client, event_name, *args, **kwargs)
+            try:
+                plugin.take(client, event_name, *args, **kwargs)
+            except Exception:
+                logger.error("Plugin {} fucked up take".format(plugin.__class__.__name__))
+                logger.error(traceback.format_exception())
 
     def handle(self, client, msg_type, msg_data):
         if msg_type not in self.command_map:
