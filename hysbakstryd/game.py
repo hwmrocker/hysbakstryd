@@ -34,7 +34,6 @@ class Game:
         # as soon as the call order is important, we need to change self.plugins to a list
         self.plugins = set()
         self.command_map = {}
-        self.event_map = defaultdict(list)
 
         self.register_plugins()
 
@@ -55,8 +54,10 @@ class Game:
             if key in old_game_dict:
                 self.__dict__[key] = old_game_dict[key]
 
-    def inform_all(self, msg_type, data, from_id="__master__"):
-        for net_client in self.user_to_network_clients.values():
+    def inform_all(self, msg_type, data, from_id="__master__", clients=None):
+        if clients is None:
+            clients = self.user_to_network_clients.values()
+        for net_client in clients:
             net_client.inform(msg_type, data, from_id=from_id)
 
     def register(self, network_client, username, password, **kw):
@@ -120,11 +121,7 @@ class Game:
         # TODO: load plugins dynamically?!
 
     def register_plugin(self, plugin):
-        # events
-        for event_method_name in [m for m in dir(plugin) if m.startswith('at_') and callable(getattr(plugin, m))]:
-            event_name = event_method_name[3:]
-            self.event_map[event_name].append(getattr(plugin, event_method_name))
-
+        # register commands
         for command_method_name in [m for m in dir(plugin) if m.startswith('do_') and callable(getattr(plugin, m))]:
             self.command_map[command_method_name[3:]] = getattr(plugin, command_method_name)
 
@@ -132,14 +129,8 @@ class Game:
         plugin.initialize(self)
 
     def emit(self, client, event_name, *args, **kwargs):
-        if event_name in self.event_map:
-            # event = self.event_map[event_name]
-            for event in self.event_map[event_name]:
-                for c in self.clients:
-                    # TODO: FIXME: why is the event emited for each client but not a parameter?
-                    event(client, *args, **kwargs)
-        else:
-            return
+        for plugin in self.plugins:
+            plugin.take(client, event_name, *args, **kwargs)
 
     def handle(self, client, msg_type, msg_data):
         if msg_type not in self.command_map:
@@ -190,7 +181,7 @@ class Game:
             for state_f in c.states:
                 try:
                     ret = state_f(c)
-                    if ret == True:
+                    if ret is True:
                         new_states.add(state_f)
                     elif callable(ret):
                         new_states.add(ret)
@@ -240,6 +231,25 @@ class Plugin:
         self.game.emit(client, event_name, *args, **kwargs)
 
         # TODO: implement
+
+    def take(self, client, event_name, *args, **kwargs):
+        """
+        This function is called when some plugin emits an event. It tries to look up the function
+        with the name `'at_' + event_name` if it is not preset, the function _at_default will
+        be called.
+        """
+        # events
+        event_f = getattr(self, "at_" + event_name, None)
+        if event_f:
+            event_f(client, *args, **kwargs)
+        else:
+            self._at_default(client, event_name, *args, **kwargs)
+
+    def _at_default(self, client, event_name, *args, **kwargs):
+        """
+        This function is called when no specific function for the event_name was found
+        """
+        pass
 
     def initialize(self, game):
         """
