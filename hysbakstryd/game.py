@@ -482,6 +482,15 @@ class HelpPlugin(Plugin):
        with a `command` argument, return the documentation of the given command.
     """
 
+    def do_WHAT_DO_I_DO_NOW(self, client):
+        """Return a soothing help message."""
+
+        message = """
+        Don't panic!
+        """
+        
+        return (), ('relax', message), None
+
     def do_help_plugin(self, client, plugin=None):
         """
         Return a list of plugins or documentation on a specific plugin (if given).
