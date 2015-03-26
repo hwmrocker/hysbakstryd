@@ -105,11 +105,16 @@ class HWM(NetworkClient):
     def handle_WELCOME(self, data):
         import time
         # time.sleep(1)
+        self.send_msg(dict(type="get_state"))
+        self.send_msg(dict(type="get_world_state"))
         self.send_msg(dict(type="set_level", level=5))
         self.send_msg(dict(type="set_direction", direction="up"))
         time.sleep(2)
+        self.send_msg(dict(type="get_state"))
         self.send_msg(dict(type="set_level", level=1))
         self.send_msg(dict(type="set_level", level=4))
+        time.sleep(2)
+        self.send_msg(dict(type="get_state"))
 
     def handle_LEVELS(self, data):
         pass
