@@ -325,26 +325,26 @@ class MovementPhase1(Plugin):
         v['level'] = 0.
         v['direction'] = 'halt'
         v['door'] = 'closed'
-        client.movement_paused = True
+        v['movement_paused'] = True
         client.was_paused = True
 
+    def at_movement_stopped(self, client, ...):
+        pass
+    
+        
     # states
     def moving(self, client):
         # TODO refactor this, maybe use pause/unpause helper functions
-        if client.movement_paused:
+        if c.vars['movement_paused']:
             if not client.was_paused:
                 client.was_paused = True
                 self.emit(client, 'movement_paused')
-            return False
+            return True
         else:
             if client.was_paused:
                 client.was_paused = False
                 self.emit(client, 'movement_unpaused')
 
-        print("client would move, probably")
-        return self.move_client
-
-    def move_client(self, c):
         intlevel = round(c.vars['level'])
         if abs(c.vars['level'] - intlevel) > self.MOVEMENT_PER_TICK:
             intlevel = None
@@ -418,7 +418,7 @@ class MovementPhase1(Plugin):
         if client.vars['levels'] and client.vars['direction'] != "halt":
             client.movement_paused = False
             self.emit(client, 'moving', (client.vars['direction'], ))
-            return self.move_client
+            return self.moving
         return False
 
     def _halt(self, client):
