@@ -115,9 +115,13 @@ class Game:
         self._pause = False
 
     def register_plugins(self):
+        # from plugins import *
+        
         self.register_plugin(MovementPhase1())
         self.register_plugin(ShoutPlugin())
         self.register_plugin(HelpPlugin())
+        self.register_plugin(ObserverPlugin())
+        self.register_plugin(ServerObserverPlugin())
         # TODO: load plugins dynamically?!
 
     def register_plugin(self, plugin):
@@ -134,7 +138,7 @@ class Game:
                 plugin.take(client, event_name, *args, **kwargs)
             except Exception:
                 logger.error("Plugin {} fucked up take".format(plugin.__class__.__name__))
-                logger.error(traceback.format_exception())
+                logger.error(traceback.format_exc())
 
     def handle(self, client, msg_type, msg_data):
         if msg_type not in self.command_map:
@@ -142,7 +146,7 @@ class Game:
                 msg_type, client.name
             ))
             print(msg_type, self.command_map.keys())
-            self.username_to_network_client[client.username].inform(
+            self.user_to_network_clients[client.vars['username']].inform(
                 'command_not_found',
                 {'msg': 'HE! Du Sackgesicht! Es gibt den Befehl "{}" nicht!'.format(msg_type)}
             )
@@ -208,62 +212,9 @@ class Game:
                 logger.error(traceback.format_exc())
 
 
-class Plugin:
-
-    """
-    Main plugin class for Hysbakstrid.
-
-    All methods whose name start with do_ will be registered as client commands that can
-    be sent data. Each command should return a set of methods to be added to the client
-    state. Each state method will be called in each tick until it returns a non-True
-    value, at
-    which point it will be removed from the client's states.
-
-    Additionally, the Plugin `tick` method will be called each tick with a set of all
-    clients and can perform time-based or global processing at that point.
-
-    # TODO: more documentation and show examples
-    """
-
-    def connect(self, client):
-        pass
-
-    def emit(self, client, event_name, *args, **kwargs):
-        """
-        Call this method when you want to emit an event (to all other plugins).
-        """
-        self.game.emit(client, event_name, *args, **kwargs)
-
-        # TODO: implement
-
-    def take(self, client, event_name, *args, **kwargs):
-        """
-        This function is called when some plugin emits an event. It tries to look up the function
-        with the name `'at_' + event_name` and calls it if present.
-        """
-        # events
-        event_f = getattr(self, "at_" + event_name, None)
-        if event_f:
-            event_f(client, *args, **kwargs)
-
-    def initialize(self, game):
-        """
-        Called once when the game starts or the game reinitializes.
-
-        Overwrite this with your own implementation to do stuff at game start/reload,but
-        don't forget to call super.
-        """
-        self.game = game
-
-    def tick(self, time, clients):
-        """
-        Called every game tick with all currently registered clients.
-
-        Return a set of states that will be added to the client states. Each client state
-        is a function on the plugin that will be called each tick.
-        """
-        pass
-
+from .plugins.plugin import Plugin
+from .plugins.movement import MovementPhase1
+    
 
 class ObserverPlugin(Plugin):
 
@@ -281,176 +232,25 @@ class ObserverPlugin(Plugin):
     def do_get_world_state(self, client):
         """Get the state of every client."""
 
-        state = {c.username: c.vars for c in self.game.clients}
+        state = {c.vars['username']: c.vars for c in self.game.user_to_game_clients.values()}
         return (), ('state', state), None
 
     def observe(self, client):
         self.game.username_to_network_client[client.username].inform(
-            'game_state', {c.username: c.vars for c in self.game.clients}
+            'game_state', {c.username: c.vars for c in self.game.user_to_game_clients.values()}
         )
 
+class ServerObserverPlugin(Plugin):
 
-class MovementPhase1(Plugin):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.logger = logger.getChild("ServerObserverPlugin")
 
-    # MOVEMENT RATE FOR AN ELEVATOR IN EACH GAME TICK
-    RATE = 1  # levels per second
-
-    MOVEMENT_PER_TICK = RATE * TICK_TIME
-
-    MAX_FLOOR = 9
-    MIN_FLOOR = 0
-
-    # how long does an elevator wait when the door is opened?
-    WAITING_TIME = 10  # ticks
-    """
-    Movement mechanism.
-
-    Put your name in `client.movement_paused_by` (a set) to stop the elevator from
-    moving.
-
-    Will emit these events:
-     * `(moving, 'up'/'down')` when movement starts
-     * `(at_level, x)` when entering level x (pause movement and 'snap' to a level if you
-       want to stop there)
-     * `(movement_open, level)` when door opened
-     * `(movement_closed, level)` when door closed
-     * `(movement_paused, )` when movement begins to be paused
-     * `(movement_unpaused, )` when movement ends to be paused
-     * `(stopped, )`, when the direction was set to 'halt'
-    """
-
-    def connect(self, client):
-        v = client.vars
-        v['levels'] = []
-        v['level'] = 0.
-        v['direction'] = 'halt'
-        v['door'] = 'closed'
-        v['movement_paused'] = True
-        client.was_paused = True
-
-    def at_movement_stopped(self, client, ...):
-        pass
+    def take(self, client, event_name, *args, **kwargs):
+        self.logger.debug("EVENT: {}: {}".format(client.name, event_name))
     
+
         
-    # states
-    def moving(self, client):
-        # TODO refactor this, maybe use pause/unpause helper functions
-        if c.vars['movement_paused']:
-            if not client.was_paused:
-                client.was_paused = True
-                self.emit(client, 'movement_paused')
-            return True
-        else:
-            if client.was_paused:
-                client.was_paused = False
-                self.emit(client, 'movement_unpaused')
-
-        intlevel = round(c.vars['level'])
-        if abs(c.vars['level'] - intlevel) > self.MOVEMENT_PER_TICK:
-            intlevel = None
-
-        if intlevel in c.vars['levels']:
-            c.vars['level'] = intlevel
-            c.vars['levels'].remove(intlevel)
-            c.vars['_stopped_at'] = c.game.time
-            return self.open_door
-        else:
-            if c.vars['direction'] == 'down':
-                if c.vars['level'] <= self.MIN_FLOOR:
-                    c.vars['level'] = self.MIN_FLOOR
-                    return self._halt()
-                else:
-                    c.vars['level'] -= self.MOVEMENT_PER_TICK
-
-            elif c.vars['direction'] == 'up':
-                if c.vars['level'] >= self.MAX_FLOOR:
-                    c.vars['level'] = self.MAX_FLOOR
-                    return self._halt()
-                else:
-                    c.vars['level'] += self.MOVEMENT_PER_TICK
-        return True
-
-    def open_door(self, c):
-        """
-        open door and wait
-        """
-
-        # can the user close the doors themselves? Should we guard against that?
-        c.vars['door'] = 'open'
-        c.movement_paused = False
-        self.emit(c, "movement_open", c.vars['level'])
-        return self.wait_for_people
-
-    def wait_for_people(self, c):
-        """
-        Wait for the appropriate time until the doors close again
-        """
-        if c.vars['_stopped_at'] + self.WAITING_TIME >= c.game.time:
-            return True
-
-        return self.close_door
-
-    def close_door(self, c):
-        """
-        close the, and check if and where to move
-        """
-
-        # can the user close the doors themselves? Should we guard against that?
-        c.vars['door'] = 'closed'
-        self.emit(c, "movement_closed", c.vars['level'])
-
-        # This should rarely be the case, but we should check it
-        if c.vars['level'] in c.vars['levels']:
-            c.vars['levels'].remove(c.vars['level'])
-
-        if not c.vars['levels']:
-            return self._halt(c)
-
-        if c.vars['direction'] == 'up' and all((l < c.vars['level'] for l in c.vars['levels'])):
-            c.vars['direction'] = 'down'
-        if c.vars['direction'] == 'down' and all((l > c.vars['level'] for l in c.vars['levels'])):
-            c.vars['direction'] = 'up'
-        return self._check_moving(c)
-
-    # state _helper functions (this funtions return suggested new states)
-
-    def _check_moving(self, client):
-        if client.vars['levels'] and client.vars['direction'] != "halt":
-            client.movement_paused = False
-            self.emit(client, 'moving', (client.vars['direction'], ))
-            return self.moving
-        return False
-
-    def _halt(self, client):
-        client.vars['direction'] = "halt"
-        self.emit(client, 'stopped')
-        return False
-
-    # event listeners
-    # no event listeners
-
-    # commands
-    def do_set_direction(self, client, direction=None):
-        assert direction in ("up", "down", "halt")
-        client.vars['direction'] = direction
-        if direction == 'halt':
-            self._halt(client)
-        else:
-            self._check_moving(client)
-        return (self.moving, ), None, ("DIRECTION", client.vars['direction'])
-
-    def do_set_level(self, client, level=None):
-        assert 0 <= level < 10
-        if level not in client.vars['levels']:
-            client.vars['levels'].append(level)
-            self._check_moving(client)
-        return (self.moving, ), None,  ("LEVELS", client.vars['levels'])
-
-    def do_reset_levels(self, client):
-        client.var['levels'] = []
-        return (), None, ("LEVELS", [])
-
-
 class ShoutPlugin(Plugin):
 
     """A simple plugin that lets each user send messages to all connected clients.
