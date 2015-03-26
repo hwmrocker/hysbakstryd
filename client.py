@@ -1,6 +1,8 @@
 import asyncio
 import msgpack
 import logging
+import logging.config
+import yaml
 
 
 class NetworkClient:
@@ -79,6 +81,7 @@ class HWM(NetworkClient):
         self.ignore_list = []
 
     def inform(self, msg_type, from_id, data):
+        logging.info("got from {}: {}, {}".format(from_id, msg_type, data))
         try:
             handler = getattr(self, "handle_{}".format(msg_type))
             ret = handler(data)
@@ -101,7 +104,7 @@ class HWM(NetworkClient):
 
     def handle_WELCOME(self, data):
         import time
-        time.sleep(1)
+        # time.sleep(1)
         self.send_msg(dict(type="set_level", level=5))
         self.send_msg(dict(type="set_direction", direction="up"))
         time.sleep(2)
@@ -138,9 +141,15 @@ def load_config():
         return {}
 
 
+def setup_logging():
+    with open("logger.conf.yaml") as fh:
+        config = yaml.load(fh)
+    logging.config.dictConfig(config)
+
+
 if __name__ == "__main__":
     import sys
-
+    setup_logging()
     loop = asyncio.get_event_loop()
     default_args = {
         "host": "localhost",

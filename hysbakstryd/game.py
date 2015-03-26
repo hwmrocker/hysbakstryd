@@ -310,7 +310,7 @@ class MovementPhase1(Plugin):
     MIN_FLOOR = 0
 
     # how long does an elevator wait when the door is opened?
-    WAITING_TIME = 10 # ticks
+    WAITING_TIME = 10  # ticks
     """
     Movement mechanism.
 

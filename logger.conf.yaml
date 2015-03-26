@@ -19,5 +19,5 @@ loggers:
     handlers: [console, file]
     propagate: no
 root:
-  level: ERROR
+  level: DEBUG
   handlers: [console]

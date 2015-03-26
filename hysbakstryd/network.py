@@ -71,7 +71,7 @@ class Client:
                 error = "The function ({}) you are calling is not available".format(msg_type)
 
                 traceback.print_exc()
-                
+
                 self.logger.warning(error)
                 self.inform("ERR", error)
             except Exception as e:
@@ -164,6 +164,7 @@ class Server:
                 self.host, self.port
             )
             logging.info('Running server on {}:{}'.format(self.host, self.port))
+            print('Running server on {}:{}'.format(self.host, self.port))
             asyncio.async(self.check_for_new_game())
         except OSError:
             logging.error('Cannot bind to this port! Is the server already running?')
