@@ -239,21 +239,12 @@ class Plugin:
     def take(self, client, event_name, *args, **kwargs):
         """
         This function is called when some plugin emits an event. It tries to look up the function
-        with the name `'at_' + event_name` if it is not preset, the function _at_default will
-        be called.
+        with the name `'at_' + event_name` and calls it if present.
         """
         # events
         event_f = getattr(self, "at_" + event_name, None)
         if event_f:
             event_f(client, *args, **kwargs)
-        else:
-            self._at_default(client, event_name, *args, **kwargs)
-
-    def _at_default(self, client, event_name, *args, **kwargs):
-        """
-        This function is called when no specific function for the event_name was found
-        """
-        pass
 
     def initialize(self, game):
         """
