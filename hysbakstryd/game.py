@@ -115,14 +115,10 @@ class Game:
         self._pause = False
 
     def register_plugins(self):
-        # from plugins import *
-        
-        self.register_plugin(MovementPhase1())
-        self.register_plugin(ShoutPlugin())
-        self.register_plugin(HelpPlugin())
-        self.register_plugin(ObserverPlugin())
-        self.register_plugin(ServerObserverPlugin())
-        # TODO: load plugins dynamically?!
+        from .plugins import plugins
+
+        for p in plugins:
+            self.register_plugin(p())
 
     def register_plugin(self, plugin):
         # register commands
@@ -215,107 +211,6 @@ class Game:
 from .plugins.plugin import Plugin
 from .plugins.movement import MovementPhase1
     
-
-class ObserverPlugin(Plugin):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def do_observe(self, client):
-        return (self.observe, ), ('observe', 'started'), None
-
-    def do_get_state(self, client):
-        """Get the state of your own client."""
-
-        return (), ('state', client.vars), None
-
-    def do_get_world_state(self, client):
-        """Get the state of every client."""
-
-        state = {c.vars['username']: c.vars for c in self.game.user_to_game_clients.values()}
-        return (), ('state', state), None
-
-    def observe(self, client):
-        self.game.username_to_network_client[client.username].inform(
-            'game_state', {c.username: c.vars for c in self.game.user_to_game_clients.values()}
-        )
-
-class ServerObserverPlugin(Plugin):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.logger = logger.getChild("ServerObserverPlugin")
-
-    def take(self, client, event_name, *args, **kwargs):
-        self.logger.debug("EVENT: {}: {}".format(client.name, event_name))
-    
-
-        
-class ShoutPlugin(Plugin):
-
-    """A simple plugin that lets each user send messages to all connected clients.
-
-    There is only a single command, `shout`, which accepts any number of keyword
-    arguments and echoes all of them to all players.
-    """
-
-    def __init__(self):
-        self.logger = logger.getChild("ShoutPlugin")
-
-    def do_shout(self, client, **foo):
-        """
-        Repeat the sent message to all connected clients.
-        """
-        self.logger.debug("{}: {}".format(client.name, foo))
-        return (), None, ("RESHOUT", foo)
-
-
-class HelpPlugin(Plugin):
-
-    """
-    Show help on registered plugins.
-
-    Offers two commands:
-     * `help_plugins`: return to the calling client a list of plugins, or, when called
-       with a `plugin` argument, return the documentation on the loaded plugin.
-     * `help_command`: return to the calling client a list of commands, or, when called
-       with a `command` argument, return the documentation of the given command.
-    """
-
-    def do_WHAT_DO_I_DO_NOW(self, client):
-        """Return a soothing help message."""
-
-        message = """
-        Don't panic!
-        """
-        
-        return (), ('relax', message), None
-
-    def do_help_plugin(self, client, plugin=None):
-        """
-        Return a list of plugins or documentation on a specific plugin (if given).
-        """
-        if not plugin:
-            return (), ('help_for_plugins', [p.__class__.__name__ for p in self.game.plugins]), None
-
-        plc = [p for p in self.game.plugins if p.__class__.__name__ == plugin]
-        if plc:
-            p = plc[0]
-            return (), ('help_for_plugin', p.__doc__), None
-
-        return (), None, None
-
-    def do_help_command(self, client, command=None):
-        """
-        Return a list of available commands or documentation on a specific command.
-        """
-        if not command:
-            return (), ('help_for_commands', list(self.game.command_map.keys())), None
-
-        if command in self.game.command_map:
-            return (), ('help_for_command', self.game.command_map[command].__doc__), None
-
-        return (), ('help_for_command', 'command not found'), None
 
 
 class GameClient:

@@ -1,9 +1,12 @@
 
 
-class Plugin:
+import logging
+logger = logging.getLogger("game")
 
+
+class Plugin:
     """
-    Main plugin class for Hysbakstrid.
+    Plugin base class, derive from this to create new plugins for hysbakstryd.
 
     All methods whose name start with do_ will be registered as client commands that can
     be sent data. Each command should return a set of methods to be added to the client
@@ -18,6 +21,12 @@ class Plugin:
     """
 
     def connect(self, client):
+        """
+        makes a connection or whatever
+        
+
+        """
+        
         pass
 
     def emit(self, client, event_name, *args, **kwargs):
