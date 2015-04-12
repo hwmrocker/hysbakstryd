@@ -1,5 +1,4 @@
-
-from .plugin import Plugin, logger
+from ._plugin_base import Plugin, logger
 
 
 class ShoutPlugin(Plugin):
@@ -19,4 +18,3 @@ class ShoutPlugin(Plugin):
         """
         self.logger.debug("{}: {}".format(client.name, foo))
         return (), None, ("RESHOUT", foo)
-

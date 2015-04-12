@@ -4,18 +4,27 @@
 import os
 import importlib
 
-from .plugin import Plugin
+from ._plugin_base import Plugin, logger
 
 plugins = []
-__plugin_set = set()
 
+# we do not want to have the base plugin in our plugin list
+__plugin_set = {Plugin}
+
+# iterate over all files in the same directory
 for file_ in os.listdir(os.path.dirname(os.path.abspath(__file__))):
-    fileext = os.path.splitext(file_)[1].replace(".","").lower()
-    filename = os.path.splitext(file_)[0]
-    if not filename.startswith('__') and fileext == "py":
-        newmod = importlib.import_module(__loader__.name + "." + filename)
-        for content in [n for n in dir(newmod) if not n.startswith('__')]:
-            c = getattr(newmod, content)
-            if type(c) == type and issubclass(c, Plugin) and c not in __plugin_set:
-                __plugin_set.add(c)
-                plugins.append(c)
+    filename, fileext = os.path.splitext(file_)
+    print(filename)
+    # we ignore files that doesn't contain plugins itself
+    if not filename.startswith('_') and fileext.lower() == ".py":
+        try:
+            newmod = importlib.import_module(__loader__.name + "." + filename)
+
+            # get all possible plugin names
+            for plugin_name in [n for n in dir(newmod) if not n.startswith('_') and n[0].isupper() and not n.isupper()]:
+                klass = getattr(newmod, plugin_name)
+                if type(klass) == type and issubclass(klass, Plugin) and klass not in __plugin_set:
+                    __plugin_set.add(klass)
+                    plugins.append(klass)
+        except ImportError:
+            logger.error("could not import {}".format(filename))

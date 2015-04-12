@@ -1,7 +1,5 @@
+from ._plugin_base import Plugin
 
-
-from .plugin import Plugin
-        
 
 class HelpPlugin(Plugin):
 
@@ -21,7 +19,7 @@ class HelpPlugin(Plugin):
         message = """
         Don't panic!
         """
-        
+
         return (), ('relax', message), None
 
     def do_help_plugin(self, client, plugin=None):
@@ -49,5 +47,3 @@ class HelpPlugin(Plugin):
             return (), ('help_for_command', self.game.command_map[command].__doc__), None
 
         return (), ('help_for_command', 'command not found'), None
-
-

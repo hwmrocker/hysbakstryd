@@ -1,6 +1,4 @@
-from .plugin import Plugin, logger
-
-
+from ._plugin_base import Plugin, logger
 
 
 class ServerObserverPlugin(Plugin):
@@ -11,5 +9,3 @@ class ServerObserverPlugin(Plugin):
 
     def take(self, client, event_name, *args, **kwargs):
         self.logger.debug("EVENT: {}: {}".format(client.name, event_name))
-    
-

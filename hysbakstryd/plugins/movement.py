@@ -1,6 +1,4 @@
-
-
-from .plugin import Plugin
+from ._plugin_base import Plugin
 
 
 class MovementPhase1(Plugin):
@@ -48,8 +46,7 @@ class MovementPhase1(Plugin):
     def at_movement_started(self, client, by=None, *args, **kwargs):
         # TODO: remove only the one "by" that unblocks the movement
         self.client.vars['movement_paused'] = False
-        
-        
+
     # states
     def moving(self, client):
         c = client
@@ -65,7 +62,7 @@ class MovementPhase1(Plugin):
 
         if client.vars['direction'] == 'halt':
             return True
-                
+
         intlevel = round(c.vars['level'])
         if abs(c.vars['level'] - intlevel) > self.MOVEMENT_PER_TICK:
             intlevel = None
@@ -172,5 +169,3 @@ class MovementPhase1(Plugin):
     def do_reset_levels(self, client):
         client.var['levels'] = []
         return (), None, ("LEVELS", [])
-
-

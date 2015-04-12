@@ -1,5 +1,4 @@
-
-from .plugin import Plugin
+from ._plugin_base import Plugin
 
 
 class ObserverPlugin(Plugin):
@@ -25,4 +24,3 @@ class ObserverPlugin(Plugin):
         self.game.username_to_network_client[client.username].inform(
             'game_state', {c.username: c.vars for c in self.game.user_to_game_clients.values()}
         )
-
