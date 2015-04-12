@@ -208,11 +208,6 @@ class Game:
                 logger.error(traceback.format_exc())
 
 
-from .plugins.plugin import Plugin
-from .plugins.movement import MovementPhase1
-    
-
-
 class GameClient:
 
     def __init__(self, username, game, observer=False, _old_client=None, **kw):
