@@ -5,7 +5,7 @@ formatters:
 handlers:
   console:
     class: logging.StreamHandler
-    level: INFO
+    level: WARNING
     formatter: simple
     stream: ext://sys.stdout
   file:
@@ -15,9 +15,9 @@ handlers:
     filename: debug.log
 loggers:
   game:
-    level: INFO
+    level: WARNING
     handlers: [console, file]
     propagate: no
 root:
-  level: INFO
+  level: WARNING
   handlers: [console]

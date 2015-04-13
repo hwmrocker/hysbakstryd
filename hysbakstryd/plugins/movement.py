@@ -76,14 +76,14 @@ class MovementPhase1(Plugin):
             if c.vars['direction'] == 'down':
                 if c.vars['level'] <= self.MIN_FLOOR:
                     c.vars['level'] = self.MIN_FLOOR
-                    return self._halt()
+                    return self._halt(c)
                 else:
                     c.vars['level'] -= self.MOVEMENT_PER_TICK
 
             elif c.vars['direction'] == 'up':
                 if c.vars['level'] >= self.MAX_FLOOR:
                     c.vars['level'] = self.MAX_FLOOR
-                    return self._halt()
+                    return self._halt(c)
                 else:
                     c.vars['level'] += self.MOVEMENT_PER_TICK
 

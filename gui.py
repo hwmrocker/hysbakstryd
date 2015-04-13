@@ -115,10 +115,8 @@ class Observer(NetworkClient):
                 logging.info("{}: {}, {}".format(from_id, msg_type, ret))
             except:
                 logging.error("hanler {} died".format(msg_type))
-                print(".../")
 
                 logging.error(traceback.format_exc())
-                print(".../.")
 
     def handle_ERR(self, data):
         logging.error(data)
@@ -143,11 +141,8 @@ class Observer(NetworkClient):
 
     def handle_WORLD_STATE(self, data):
         # self.future.set_result(data)
-        print(".")
         self._world_state = data
-        print("..")
         self.map.update_world_state(data)
-        print("../")
 
     def handle_LEVELS(self, data):
         pass
