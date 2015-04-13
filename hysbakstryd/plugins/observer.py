@@ -7,7 +7,8 @@ class ObserverPlugin(Plugin):
         super().__init__(*args, **kwargs)
 
     def do_observe(self, client):
-        return (self.observe, ), ('observe', 'started'), None
+        return (), ('observe', 'started'), None
+        # return (self.observe, ), ('observe', 'started'), None
 
     def do_get_state(self, client):
         """Get the state of your own client."""
@@ -17,10 +18,10 @@ class ObserverPlugin(Plugin):
     def do_get_world_state(self, client):
         """Get the state of every client."""
 
-        state = {c.vars['username']: c.vars for c in self.game.user_to_game_clients.values()}
-        return (), ('state', state), None
+        state = {c.vars['username']: c.vars for c in self.game.user_to_game_clients.values() if c.observer is False}
+        return (), ('WORLD_STATE', state), None
 
     def observe(self, client):
-        self.game.username_to_network_client[client.username].inform(
+        self.game.user_to_network_client[client.username].inform(
             'game_state', {c.username: c.vars for c in self.game.user_to_game_clients.values()}
         )

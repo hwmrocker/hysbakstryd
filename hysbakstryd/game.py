@@ -214,6 +214,7 @@ class GameClient:
         self.name = username
         self.game = game
         self.online = True
+        self.observer = True if observer else False
 
         self.vars = {'username': username}
 
@@ -232,7 +233,7 @@ class GameClient:
             fh = logging.FileHandler(filename="logs/GameClient_{}.log".format(self.name))
             fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
             self.logger.addHandler(fh)
-        self.logger.info("hello client, {}".format(self.name))
+        self.logger.info("hello client, {} observer={}".format(self.name, self.observer))
 
         if _old_client is not None:
             self._init_from_old_client(_old_client)
