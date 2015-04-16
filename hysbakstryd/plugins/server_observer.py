@@ -8,4 +8,7 @@ class ServerObserverPlugin(Plugin):
         self.logger = logger.getChild("ServerObserverPlugin")
 
     def take(self, client, event_name, *args, **kwargs):
-        self.logger.debug("EVENT: {}: {}".format(client.name, event_name))
+        if client is None:
+            self.logger.debug("EVENT: {}".format(event_name))
+        else:
+            self.logger.debug("EVENT: {}: {}".format(client.name, event_name))
