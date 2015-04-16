@@ -87,7 +87,7 @@ class MovementPhase1(Plugin):
                 else:
                     c.vars['level'] += self.MOVEMENT_PER_TICK
 
-        print("  {} moved to {}".format(c.vars['username'], c.vars['level']))
+        # print("  {} moved to {}".format(c.vars['username'], c.vars['level']))
         return True
 
     def open_door(self, c):

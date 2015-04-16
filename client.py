@@ -104,6 +104,17 @@ class HWM(NetworkClient):
 
     def handle_WELCOME(self, data):
         import time
+        self.send_msg(dict(type="set_level", level=1))
+        self.send_msg(dict(type="set_level", level=2))
+        self.send_msg(dict(type="set_level", level=3))
+        self.send_msg(dict(type="set_level", level=4))
+        self.send_msg(dict(type="set_level", level=5))
+        self.send_msg(dict(type="set_level", level=6))
+        self.send_msg(dict(type="set_level", level=7))
+        self.send_msg(dict(type="set_level", level=8))
+        self.send_msg(dict(type="set_level", level=9))
+        self.send_msg(dict(type="set_direction", direction="up"))
+        return
         # time.sleep(1)
         self.send_msg(dict(type="get_state"))
         self.send_msg(dict(type="get_world_state"))

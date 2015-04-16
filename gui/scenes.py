@@ -21,6 +21,41 @@ class Car(ui.View):
         self.background_color = [0, 0, 0]
 
 
+class PersonCounterView(ui.View):
+
+    def __init__(self, idx):
+        frame = ui.Rect(0, 0, 60, 105)
+        frame.bottom = 620 - idx * 60
+        super().__init__(frame)
+        self._idx = idx
+        self.up_label = ui.Label(ui.Rect(0, 0, 60, 20), "00")
+        self.down_label = ui.Label(ui.Rect(0, 25, 60, 20), "00")
+        self.add_child(self.up_label)
+        self.add_child(self.down_label)
+        self.up = 0
+        self.down = 10
+
+    @property
+    def up(self):
+        return self.up_label.text
+
+    @up.setter
+    def up(self, value):
+        self.up_label.text = str(value)
+
+    @property
+    def down(self):
+        return self.down_label.text
+
+    @down.setter
+    def down(self, value):
+        self.down_label.text = str(value)
+
+    def stylize(self):
+        super().stylize()
+        self.background_color = [200, 200, 200] if self._idx % 2 else [250, 250, 250]
+
+
 class PlayerView(ui.View):
 
     def __init__(self, idx):
@@ -61,6 +96,7 @@ class MapScene(ui.Scene):
         # self.map.on_update_player.connect(self.update_player)
         # self.add_child(self.map)
         self.user = {}
+        self.counters = {}
         self.name2idx = {}
         self.label = {}
         self.next_id = 0
@@ -69,6 +105,10 @@ class MapScene(ui.Scene):
             # pv.background_color = [0, 0, 0] if i % 2 else [50, 50, 50]
             self.add_child(pv)
             self.user[i] = pv
+        for i in range(10):
+            person_counter = PersonCounterView(i)
+            self.add_child(person_counter)
+            self.counters[i] = person_counter
             # pv.layout()
         # self.shadowed = True
         self.stylize()
@@ -100,7 +140,10 @@ class MapScene(ui.Scene):
 
     def update_world_state(self, state):
         for username, user_state in state.items():
-            if username not in self.name2idx:
+            if username == "__world__":
+                up = user_state['waiting_up']
+                down = user_state['waiting_down']
+            elif username not in self.name2idx:
                 user_id = self.next_id
                 self.name2idx[username] = user_id
                 self.next_id += 1
