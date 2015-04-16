@@ -3,6 +3,7 @@ import msgpack
 import logging
 import logging.config
 import yaml
+import sys
 
 
 class NetworkClient:
@@ -152,23 +153,24 @@ def setup_logging():
     logging.config.dictConfig(config)
 
 
-if __name__ == "__main__":
-    import sys
+def run_command(username='', password='', host='localhost', port=8001):
     setup_logging()
     loop = asyncio.get_event_loop()
-    default_args = {
-        "host": "localhost",
-        "port": "8001",
-    }
-    default_args.update(load_config())
-    if len(sys.argv) >= 2:
-        default_args["username"] = sys.argv[1]
-    if len(sys.argv) >= 3:
-        default_args["password"] = sys.argv[2]
 
-    c = HWM(**default_args)
+    args = {
+        'username': username,
+        'password': password,
+        'host': host,
+        'port': port,
+    }
+    
+    c = HWM(**args)
     try:
         loop.add_reader(sys.stdin.fileno(), readshit)
-        loop.run_until_complete(c.connect(**default_args))
+        loop.run_until_complete(c.connect(**args))
     finally:
         loop.close()
+
+if __name__ == '__main__':
+    import commandeer
+    commandeer.cli(default_command='run')
