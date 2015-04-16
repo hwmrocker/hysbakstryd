@@ -31,6 +31,8 @@ class Game:
         self._pause = False
         self.version = __version__
 
+        self.world_state = {}
+        
         # as soon as the call order is important, we need to change self.plugins to a list
         self.plugins = set()
         self.command_map = {}

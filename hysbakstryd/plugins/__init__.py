@@ -15,7 +15,7 @@ __plugin_set = {Plugin}
 for file_ in os.listdir(os.path.dirname(os.path.abspath(__file__))):
     filename, fileext = os.path.splitext(file_)
     # we ignore files that doesn't contain plugins itself
-    if not filename.startswith('_') and fileext.lower() == ".py":
+    if not filename.startswith('_') and not filename.startswith('.') and fileext.lower() == ".py":
         try:
             newmod = importlib.import_module(__loader__.name + "." + filename)
 

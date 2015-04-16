@@ -1,4 +1,5 @@
-from ._plugin_base import Plugin
+
+from . import Plugin
 
 
 class MovementPhase1(Plugin):
@@ -71,6 +72,7 @@ class MovementPhase1(Plugin):
             c.vars['level'] = intlevel
             c.vars['levels'].remove(intlevel)
             c.vars['_stopped_at'] = c.game.time
+            c.vars['_resume_at'] = c.game.time + self.WAITING_TIME
             return self.open_door
         else:
             if c.vars['direction'] == 'down':
@@ -105,7 +107,7 @@ class MovementPhase1(Plugin):
         """
         Wait for the appropriate time until the doors close again
         """
-        if c.vars['_stopped_at'] + self.WAITING_TIME >= c.game.time:
+        if c.vars['_resume_at'] >= c.game.time:
             return True
 
         return self.close_door
