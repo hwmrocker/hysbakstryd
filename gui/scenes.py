@@ -150,7 +150,10 @@ class MapScene(ui.Scene):
             if username == "__world__":
                 up = user_state['waiting_up']
                 down = user_state['waiting_down']
-            elif username not in self.name2idx:
+                for i in range(10):
+                    self.counters[i].update_counters(up.get(i, []), down.get(i, []))
+                return
+            if username not in self.name2idx:
                 user_id = self.next_id
                 self.name2idx[username] = user_id
                 self.next_id += 1
