@@ -240,6 +240,9 @@ class GameClient:
         if _old_client is not None:
             self._init_from_old_client(_old_client)
 
+    def inform(self, msg_type, data):
+        self.game.user_to_network_clients[self.name].inform(msg_type, data)
+
     def _init_from_old_client(self, old_client):
         self.logger.info("renew client, {}".format(self.name))
         # self.__dict__.update is not ok, because we might want to delete some keys
