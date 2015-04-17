@@ -54,6 +54,11 @@ class PersonCounterView(ui.View):
     def down(self, value):
         self.down_label.text = "v {}".format(value)
 
+    def update_counters(self, up, down):
+        if len(up) != self.up:
+            self.up = len(up)
+        if len(down) != self.down:
+            self.down = len(down)
 
     def stylize(self):
         super().stylize()
