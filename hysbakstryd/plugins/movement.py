@@ -42,11 +42,14 @@ class MovementPhase1(Plugin):
 
     def at_movement_stopped(self, client, by=None, *args, **kwargs):
         # TODO: movement can be blocked by individual plugins
-        self.client.vars['movement_paused'] = True
+        client.vars['movement_paused'] = True
 
     def at_movement_started(self, client, by=None, *args, **kwargs):
         # TODO: remove only the one "by" that unblocks the movement
-        self.client.vars['movement_paused'] = False
+        client.vars['movement_paused'] = False
+
+    def at_stopped(self, client):
+        client.inform("STOPPED", (client.name, client.vars['level']))
 
     # states
     def moving(self, client):
