@@ -13,7 +13,7 @@ class PeoplePlugin(Plugin):
     def connect(self, client):
         v = client.vars
         v['on_board'] = []
-        
+
     def initialize(self, game):
         super().initialize(game)
 
@@ -46,8 +46,7 @@ class PeoplePlugin(Plugin):
             print("getting on board", p)
 
         v['on_board'] = on_board
-            
-        
+
     def tick(self, time, clients):
         """Generate new people if necessary. NEW PEOPLE, HAHAHAHA!"""
 
