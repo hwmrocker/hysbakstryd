@@ -1,4 +1,4 @@
-from ._plugin_base import Plugin
+from . import Plugin
 
 
 class HelpPlugin(Plugin):

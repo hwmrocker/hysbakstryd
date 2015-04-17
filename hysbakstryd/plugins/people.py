@@ -5,7 +5,7 @@ Will make new People! HAHA!
 """
 
 import random
-from . import Plugin
+from . import Plugin, logger
 
 
 class PeoplePlugin(Plugin):
@@ -48,7 +48,7 @@ class PeoplePlugin(Plugin):
             v['_resume_at'] += 3
             on_board.append(p)
             self.emit(client, 'person_boards', p)
-            print("getting on board", p)
+            logger.info("getting on board", p)
 
         v['on_board'] = on_board
 

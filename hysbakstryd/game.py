@@ -32,7 +32,7 @@ class Game:
         self.version = __version__
 
         self.world_state = {}
-        
+
         # as soon as the call order is important, we need to change self.plugins to a list
         self.plugins = set()
         self.command_map = {}
@@ -143,7 +143,6 @@ class Game:
             logger.error("command not found: {} (from {})".format(
                 msg_type, client.name
             ))
-            print(msg_type, self.command_map.keys())
             self.user_to_network_clients[client.vars['username']].inform(
                 'command_not_found',
                 {'msg': 'HE! Du Sackgesicht! Es gibt den Befehl "{}" nicht!'.format(msg_type)}
