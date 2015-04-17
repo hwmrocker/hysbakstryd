@@ -89,7 +89,7 @@ class HWM(NetworkClient):
             logging.info("{}: {}, {}".format(from_id, msg_type, ret))
 
         except AttributeError:
-            logging.error("{}({}): {}".format(from_id, msg_type, data))
+            # logging.error("{}({}): {}".format(from_id, msg_type, data))
             if msg_type not in self.ignore_list:
                 self.ignore_list.append(msg_type)
                 logging.warning("No handler for '{}'".format(msg_type))
