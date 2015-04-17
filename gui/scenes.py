@@ -24,7 +24,7 @@ class Car(ui.View):
 class PersonCounterView(ui.View):
 
     def __init__(self, idx):
-        frame = ui.Rect(0, 0, 60, 105)
+        frame = ui.Rect(0, 0, 60, 60)
         frame.bottom = 620 - idx * 60
         super().__init__(frame)
         self._idx = idx
