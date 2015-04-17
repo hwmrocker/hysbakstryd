@@ -103,10 +103,6 @@ class MapScene(ui.Scene):
 
     def __init__(self, map=None):
         super().__init__()
-        # map = Map(ui.Rect(10, 10, 490, 490))
-        # self.map = map
-        # self.map.on_update_player.connect(self.update_player)
-        # self.add_child(self.map)
         self.user = {}
         self.counters = {}
         self.name2idx = {}
@@ -114,34 +110,13 @@ class MapScene(ui.Scene):
         self.next_id = 0
         for i in range(8):
             pv = PlayerView(i)
-            # pv.background_color = [0, 0, 0] if i % 2 else [50, 50, 50]
             self.add_child(pv)
             self.user[i] = pv
         for i in range(10):
             person_counter = PersonCounterView(i)
             self.add_child(person_counter)
             self.counters[i] = person_counter
-            # pv.layout()
-        # self.shadowed = True
         self.stylize()
-        # id_to_frame = {
-        #         "1": (0, 500, 250, 30),
-        #         "2": (250, 500, 250, 30),
-        #         "3": (0, 530, 250, 30),
-        #         "4": (250, 530, 250, 30),
-        #         "5": (0, 560, 250, 30),
-        #         "6": (250, 560, 250, 30),
-        #         "7": (0, 590, 250, 30),
-        #         "8": (250, 590, 250, 30),
-        #     }
-        # for id, frame in id_to_frame.items():
-        #     self.label[id] = ui.label.Label(ui.Rect(*id_to_frame[id]), "foo %s" % id)
-        #     self.add_child(self.label[id])
-
-    def update(self, dt):
-        # for player in self.user.values():
-        #     self.label[player['id']].text = "%s %s %.2f" % (player['id'], player['username'], player['level'])
-        super(MapScene, self).update(dt)
 
     def update_player(self, player):
         return
