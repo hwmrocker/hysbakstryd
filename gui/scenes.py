@@ -18,7 +18,7 @@ class Car(ui.View):
 
     def stylize(self):
         super().stylize()
-        self.background_color = [0, 0, 0]
+        self.background_color = [166, 104, 41]
 
 
 class PersonCounterView(ui.View):
