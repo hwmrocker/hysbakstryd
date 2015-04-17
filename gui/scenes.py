@@ -28,20 +28,23 @@ class PersonCounterView(ui.View):
         frame.bottom = 620 - idx * 60
         super().__init__(frame)
         self._idx = idx
-        self.up_label = ui.Label(ui.Rect(0, 0, 60, 20), "00")
-        self.down_label = ui.Label(ui.Rect(0, 25, 60, 20), "00")
+        self.up_label = ui.Label(ui.Rect(5, 7, 55, 20), "00", halign=ui.label.LEFT)
         self.add_child(self.up_label)
+        self.down_label = ui.Label(ui.Rect(5, 33, 55, 20), "00", halign=ui.label.LEFT)
         self.add_child(self.down_label)
+        self.level_indicator = ui.Label(ui.Rect(0, 0, 60, 60), str(idx), halign=ui.label.LEFT)
+        self.add_child(self.level_indicator)
+
         self.up = 0
         self.down = 10
 
     @property
     def up(self):
-        return self.up_label.text
+        return int(self.up_label.text[2:])
 
     @up.setter
     def up(self, value):
-        self.up_label.text = str(value)
+        self.up_label.text = "^ {}".format(value)
 
     @property
     def down(self):
@@ -49,11 +52,15 @@ class PersonCounterView(ui.View):
 
     @down.setter
     def down(self, value):
-        self.down_label.text = str(value)
+        self.down_label.text = "v {}".format(value)
+
 
     def stylize(self):
         super().stylize()
         self.background_color = [200, 200, 200] if self._idx % 2 else [250, 250, 250]
+        for child in self.children:
+            child.background_color = [0, 0, 0, 0]
+        self.level_indicator.text_color = [100, 100, 100, 10]
 
 
 class PlayerView(ui.View):
