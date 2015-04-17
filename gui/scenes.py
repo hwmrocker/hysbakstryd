@@ -11,16 +11,6 @@ class LoadingScene(ui.Scene):
         self.add_child(label)
 
 
-class Car(ui.View):
-    def __init__(self, frame):
-        super().__init__(frame)
-        self.stylize()
-
-    def stylize(self):
-        super().stylize()
-        self.background_color = [166, 104, 41]
-
-
 class PersonCounterView(ui.View):
 
     def __init__(self, idx):
@@ -68,18 +58,70 @@ class PersonCounterView(ui.View):
         self.level_indicator.text_color = [100, 100, 100, 10]
 
 
+class PassengerView(ui.View):
+
+    def __init__(self, idx):
+        # car size = 100, 60
+        col = idx % 2
+        row = idx // 2
+        frame = ui.Rect(50 * col, 30 * row, 50, 30)
+        super().__init__(frame)
+        self.to_level_label = ui.Label(ui.Rect(5, 7, 55, 20), "00", halign=ui.label.LEFT)
+        self.add_child(self.to_level_label)
+
+    def update_passenger(self, passenger):
+        self.to_level_label.text = str(passenger["wants_to"])
+
+    def clear_passenger(self):
+        self.to_level_label.text = ""
+
+
+class Car(ui.View):
+    def __init__(self, frame):
+        super().__init__(frame)
+        self.stylize()
+        self.passengers = {}
+        for idx in range(4):
+            p = PassengerView(idx)
+            self.add_child(p)
+            self.passengers[idx] = p
+
+    def stylize(self):
+        super().stylize()
+        for child in self.children:
+            child.background_color = [0, 0, 0, 0]
+        self.background_color = [166, 104, 41]
+
+    def update_passengers(self, passengers):
+        idx = -1
+        for idx, p in enumerate(passengers):
+            if idx >= 4:
+                logging.error("maximum 4 passengers")
+                logging.error(passengers)
+                import sys
+                sys.exit()
+            else:
+                self.passengers[idx].update_passenger(p)
+        for i in range(idx + 1, 4):
+            self.passengers[i].clear_passenger()
+
+
 class PlayerView(ui.View):
 
     def __init__(self, idx):
-        frame = ui.Rect(60+105*idx, 0, 100, 640)
+        frame = ui.Rect(60+105*idx, 0, 100, 700)
         super().__init__(frame)
         self.name_label = ui.label.Label(ui.Rect(0, 0, 100, 20), "User %s" % idx)
         self.add_child(self.name_label)
-        self.level_label = ui.label.Label(ui.Rect(0, frame.height-20, 100, 20), "Level %s" % idx)
+        self.level_label = ui.label.Label(ui.Rect(0, 620, 100, 20), "Level %s" % idx)
         self.add_child(self.level_label)
+        self.transported_label = ui.label.Label(ui.Rect(0, 640, 100, 20), "transported")
+        self.add_child(self.transported_label)
         self.car = Car(ui.Rect(0, frame.height-20-60, 100, 60))
         self.add_child(self.car)
         self.hidden = True
+        self._level = 0
+        self._transported = 0
 
     @property
     def level(self):
@@ -88,8 +130,17 @@ class PlayerView(ui.View):
     @level.setter
     def level(self, value):
         self._level = value
-        self.level_label.text = "Level %.1f" % value
-        self.car.frame.bottom = (self.frame.height - 20) - value * 60
+        self.level_label.text = "Level {:.1f}".format(value)
+        self.car.frame.bottom = (620) - value * 60
+
+    @property
+    def transported(self):
+        return self._transported
+
+    @transported.setter
+    def transported(self, value):
+        self._transported = value
+        self.transported_label.text = "{}".format(value)
 
     def update_user_state(self, data):
         self.hidden = False
@@ -97,6 +148,8 @@ class PlayerView(ui.View):
         if self.name_label.text != username:
             self.name_label.text = username
         self.level = data["level"]
+        self.transported = data["people_transported"]
+        self.car.update_passengers(data["on_board"])
 
 
 class MapScene(ui.Scene):

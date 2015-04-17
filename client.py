@@ -80,6 +80,7 @@ class HWM(NetworkClient):
         super().__init__(*args, **kw)
         self.map = []
         self.ignore_list = []
+        self.name = None
 
     def inform(self, msg_type, from_id, data):
         logging.info("got from {}: {}, {}".format(from_id, msg_type, data))
@@ -104,32 +105,30 @@ class HWM(NetworkClient):
         logging.info(data)
 
     def handle_WELCOME(self, data):
+        if self.name is None:
+            self.name = data
         import time
-        self.send_msg(dict(type="set_level", level=1))
-        self.send_msg(dict(type="set_level", level=2))
-        self.send_msg(dict(type="set_level", level=3))
-        self.send_msg(dict(type="set_level", level=4))
-        self.send_msg(dict(type="set_level", level=5))
-        self.send_msg(dict(type="set_level", level=6))
-        self.send_msg(dict(type="set_level", level=7))
-        self.send_msg(dict(type="set_level", level=8))
-        self.send_msg(dict(type="set_level", level=9))
+        for i in range(10):
+            self.send_msg(dict(type="set_level", level=i))
+
         self.send_msg(dict(type="set_direction", direction="up"))
-        return
-        # time.sleep(1)
-        self.send_msg(dict(type="get_state"))
-        self.send_msg(dict(type="get_world_state"))
-        self.send_msg(dict(type="set_level", level=5))
-        self.send_msg(dict(type="set_direction", direction="up"))
-        time.sleep(2)
-        self.send_msg(dict(type="get_state"))
-        self.send_msg(dict(type="set_level", level=1))
-        self.send_msg(dict(type="set_level", level=4))
-        time.sleep(2)
-        self.send_msg(dict(type="get_state"))
 
     def handle_LEVELS(self, data):
         pass
+
+    def handle_STOPPED(self, data):
+        # print("{!r} {!r}".format(self.name, data))
+        user, level = data
+        if self.name != user:
+            print("???? what the heck")
+            return
+        if level in (0, 9):
+            for i in range(10):
+                self.send_msg(dict(type="set_level", level=i))
+            if level == 0:
+                self.send_msg(dict(type="set_direction", direction="up"))
+            else:
+                self.send_msg(dict(type="set_direction", direction="down"))
 
     def keyboardinput(self, msg):
         # foo = ['MovementPhase1', 'ShoutPlugin', 'HelpPlugin']
