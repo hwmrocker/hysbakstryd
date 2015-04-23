@@ -3,6 +3,8 @@ import msgpack
 import traceback
 import os
 import logging
+import zeroconf
+import platform
 
 # we cannot use from .game import Game because we need to be able to reload it
 import hysbakstryd.game
@@ -131,8 +133,21 @@ class Server:
         self.game = hysbakstryd.game.Game()
         self.running = True
         self.loop = loop
+        self.zeroconf_announce()
         asyncio.async(self.ticker())
-
+    
+    def zeroconf_announce(self):
+        """
+        This registers a Zeroconf service.
+        
+        Type: _hysbakstryd._tcp.
+        Name: [hostname]._hysbakstryd._.tcp.
+        """
+        hostname = platform.node()
+        info = zeroconf.ServiceInfo("_hysbakstryd._tcp.", "{}._hysbakstryd._tcp.".format(hostname), port=self.p)
+        zc = zeroconf()
+        zc.register_service(info)
+    
     @asyncio.coroutine
     def check_for_new_game(self):
         directory = os.path.dirname(os.path.realpath(__file__))

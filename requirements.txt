@@ -2,3 +2,4 @@ bcrypt==1.1.0
 msgpack-python==0.4.5
 PyYAML==3.11
 commandeer==0.2.2
+zeroconf==0.17.1
