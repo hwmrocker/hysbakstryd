@@ -4,7 +4,6 @@ import traceback
 import os
 import logging
 import zeroconf
-import platform
 
 # we cannot use from .game import Game because we need to be able to reload it
 import hysbakstryd.game
@@ -141,10 +140,9 @@ class Server:
         This registers a Zeroconf service.
         
         Type: _hysbakstryd._tcp.
-        Name: [hostname]._hysbakstryd._.tcp.
+        Name: Server._hysbakstryd._.tcp.
         """
-        hostname = platform.node()
-        info = zeroconf.ServiceInfo("_hysbakstryd._tcp.", "{}._hysbakstryd._tcp.".format(hostname), port=self.p)
+        info = zeroconf.ServiceInfo("_hysbakstryd._tcp.", "Server._hysbakstryd._tcp.", port=self.p)
         zc = zeroconf()
         zc.register_service(info)
     
