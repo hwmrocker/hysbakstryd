@@ -171,8 +171,9 @@ def run_command(username='', password='', host='', port=None):
     if not host and not port: #Zeroconf!
         zeroconf = Zeroconf()
         info = zeroconf.get_service_info("_hysbakstryd._tcp.", "Server._hysbakstryd._tcp.")
-        host = info.address #This should work. But it isn't tested!
+        host = info.server
         port = info.port
+        
     
     args = {
         'username': username,
