@@ -56,11 +56,21 @@ class Game:
             if key in old_game_dict:
                 self.__dict__[key] = old_game_dict[key]
 
-    def inform_all(self, msg_type, data, from_id="__master__", clients=None):
-        if clients is None:
-            clients = self.user_to_network_clients.values()
-        for net_client in clients:
-            net_client.inform(msg_type, data, from_id=from_id)
+    def inform_all(self, msg_type, data, from_id="__master__", observer=True, usernames=None):
+        """
+        inform_all(msg_type, data, from_id="...", observer=True, usernames=None)
+
+        If usernames is Falsy all clients will be informed, also observers regardless of the
+        value of observer.
+
+        Otherwise usernames should be a list of recipients. Usually observers are included,
+        if observers is set to False they could be excluded
+        """
+        for username, net_client in self.user_to_network_clients.items():
+            if ((usernames is None) or
+                    (usernames and username in usernames) or
+                    (observer and self.user_to_game_clients[username].observer)):
+                net_client.inform(msg_type, data, from_id=from_id)
 
     def register(self, network_client, username, password, **kw):
         logger.info("register {}".format(username))

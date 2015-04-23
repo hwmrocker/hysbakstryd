@@ -38,6 +38,8 @@ class MovementPhase1(Plugin):
         v['direction'] = 'halt'
         v['door'] = 'closed'
         v['movement_paused'] = False
+        v['next_stop'] = None
+        v['next_stop_time'] = None
         client.was_paused = True
 
     def at_movement_stopped(self, client, by=None, *args, **kwargs):
@@ -49,7 +51,30 @@ class MovementPhase1(Plugin):
         client.vars['movement_paused'] = False
 
     def at_stopped(self, client):
-        client.inform("STOPPED", (client.name, client.vars['level']))
+        self.game.inform_all("STOPPED", (client.name, client.vars['level']), usernames=[client.username])
+
+    def at_movement_paused(self, client):
+        self.game.inform_all("MOVEMENT_PAUSED", (client.name, client.vars['level']), usernames=[client.username])
+
+    def at_movement_unpaused(self, client):
+        self.game.inform_all("MOVEMENT_UNPAUSED", (
+                client.name,
+                client.vars['level'],
+                client.vars['direction'],
+                client.vars['next_stop'],
+                client.vars['next_stop_time'],
+            ),
+            usernames=[client.username])
+
+    def at_next_stop(self, client):
+        self.game.inform_all("NEXT_STOP", (
+                client.name,
+                client.vars['level'],
+                client.vars['direction'],
+                client.vars['next_stop'],
+                client.vars['next_stop_time'],
+            ),
+            usernames=[client.username])
 
     # states
     def moving(self, client):
@@ -99,11 +124,20 @@ class MovementPhase1(Plugin):
         """
         open door and wait
         """
-
         # can the user close the doors themselves? Should we guard against that?
         c.vars['door'] = 'open'
         c.movement_paused = False
         self.emit(c, "movement_open", c.vars['level'])
+
+        # This should rarely be the case, but we should check it
+        if c.vars['level'] in c.vars['levels']:
+            c.vars['levels'].remove(c.vars['level'])
+
+        if c.vars['direction'] == 'up' and all((l < c.vars['level'] for l in c.vars['levels'])):
+            _set_client_direction(c, 'down')
+        if c.vars['direction'] == 'down' and all((l > c.vars['level'] for l in c.vars['levels'])):
+            _set_client_direction(c, 'up')
+
         return self.wait_for_people
 
     def wait_for_people(self, c):
@@ -124,17 +158,9 @@ class MovementPhase1(Plugin):
         c.vars['door'] = 'closed'
         self.emit(c, "movement_closed", c.vars['level'])
 
-        # This should rarely be the case, but we should check it
-        if c.vars['level'] in c.vars['levels']:
-            c.vars['levels'].remove(c.vars['level'])
-
         if not c.vars['levels']:
             return self._halt(c)
 
-        if c.vars['direction'] == 'up' and all((l < c.vars['level'] for l in c.vars['levels'])):
-            c.vars['direction'] = 'down'
-        if c.vars['direction'] == 'down' and all((l > c.vars['level'] for l in c.vars['levels'])):
-            c.vars['direction'] = 'up'
         return self._check_moving(c)
 
     # state _helper functions (this function returns suggested new states)
@@ -150,6 +176,30 @@ class MovementPhase1(Plugin):
         client.vars['direction'] = "halt"
         self.emit(client, 'stopped')
         return False
+
+    # other helper functions
+
+    def _set_client_direction(self, client, direction):
+        client.vars['direction'] = direction
+        self._update_clients_next_stop(client)
+
+    def _update_clients_next_stop(self, client):
+        direction = client.vars['direction']
+        levels = client.vars['levels']
+        current_level = client.vars['level']
+
+        if direction == "up":
+            next_stop = min(l for l in levels if l > current_level)
+        elif direction == "down":
+            next_stop = max(l for l in levels if l < current_level)
+        elif direction == "halt":
+            next_stop = None
+        else:
+            raise AssertionError("direction has to be one of 'up', 'down' ,or 'halt'")
+
+        if next_stop != client.vars['next_stop']:
+            client.vars['next_stop'] = next_stop
+            self.emit()
 
     # event listeners
     # no event listeners
@@ -169,8 +219,10 @@ class MovementPhase1(Plugin):
         if level not in client.vars['levels']:
             client.vars['levels'].append(level)
             self._check_moving(client)
+
         return (self.moving, ), None,  ("LEVELS", client.vars['levels'])
 
     def do_reset_levels(self, client):
         client.var['levels'] = []
+        client.var['next_stop'] = None
         return (), None, ("LEVELS", [])
