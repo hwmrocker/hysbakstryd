@@ -4,6 +4,7 @@ import logging
 import logging.config
 import yaml
 import sys
+from zeroconf import Zeroconf
 
 
 class NetworkClient:
@@ -163,10 +164,16 @@ def setup_logging():
     logging.config.dictConfig(config)
 
 
-def run_command(username='', password='', host='localhost', port=8001):
+def run_command(username='', password='', host='', port=None):
     setup_logging()
     loop = asyncio.get_event_loop()
-
+    
+    if not host and not port: #Zeroconf!
+        zeroconf = Zeroconf()
+        info = zeroconf.get_service_info("_hysbakstryd._tcp.", "Server._hysbakstryd._tcp.")
+        host = info.address #This should work. But it isn't tested!
+        port = info.port
+    
     args = {
         'username': username,
         'password': password,
