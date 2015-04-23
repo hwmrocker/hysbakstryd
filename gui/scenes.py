@@ -34,7 +34,7 @@ class PersonCounterView(ui.View):
 
     @up.setter
     def up(self, value):
-        self.up_label.text = "^ {}".format(value)
+        self.up_label.text = "A {}".format(value)
 
     @property
     def down(self):
