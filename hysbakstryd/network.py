@@ -142,7 +142,7 @@ class Server:
         Type: _hysbakstryd._tcp.
         Name: Server._hysbakstryd._.tcp.
         """
-        info = zeroconf.ServiceInfo("_hysbakstryd._tcp.", "Server._hysbakstryd._tcp.", port=self.p)
+        info = zeroconf.ServiceInfo("_hysbakstryd._tcp.", "Server._hysbakstryd._tcp.", port=self.port)
         zc = zeroconf()
         zc.register_service(info)
     
