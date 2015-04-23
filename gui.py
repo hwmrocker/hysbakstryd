@@ -53,7 +53,7 @@ class NetworkClient:
 
             self.reader = reader
             self.writer = writer
-            self.send_msg(dict(type="connect", username=username, password=password, observer=True))
+            self.send_msg(dict(type="connect", username="observer", password="password", observer=True))
             self.sockname = writer.get_extra_info('sockname')
             unpacker = msgpack.Unpacker(encoding='utf-8')
             logging.info("reader eof? {}".format(repr(reader.at_eof())))
