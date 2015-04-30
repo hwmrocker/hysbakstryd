@@ -22,6 +22,30 @@ class HelpPlugin(Plugin):
 
         return (), ('relax', message), None
 
+    def do_help(self, client):
+        """
+        Return some help on what to do next.
+        """
+        
+        message = """
+First things first: If you don't know what to do, call the WHAT_DO_I_DO_NOW command.
+
+Here is a list of all commands that are available on this server:
+{}
+
+call help_command with command=<command name> for each of these to find out what
+each of them does.
+
+It's probably best to start with movement, so try this first:
+  ``set_level, level=5``
+  ``set_direction, direction="up"``
+then wait a little while and get your state with:
+  ``get_state``
+"""
+        commandlist = '\n'.join(sorted(self.game.command_map.keys()))
+        
+        return (), ('help', message.format(commandlist)), None
+
     def do_help_plugin(self, client, plugin=None):
         """
         Return a list of plugins or documentation on a specific plugin (if given).
