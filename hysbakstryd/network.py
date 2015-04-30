@@ -50,6 +50,10 @@ class Client:
             self.logger.info("msg was not valid because it didn't contain a type key, it was rejected")
             self.inform("ERR", "messages should be a dict and contain a type {'type': 'a_string'}")
             return
+        except:
+            self.logger.info("could not handle msg because it was not very valid")
+            self.inform("ERR", "invalid message")
+            return
 
         for key in msg_data.keys():
             if not isinstance(key, str):
@@ -237,7 +241,10 @@ class Server:
                 logging.critical("This error should be catched in the client, not here")
                 logging.critical(traceback_data)
 
-                self.send_to_client(peername, "ERR", error)
+                err_msg = """Your message was invalid and could not be handled.
+This error that appeared during the handling of your message was: {}""".format(error)
+                
+                self.send_to_client(peername, "ERR", err_msg)
                 self.send_to_client(peername, "TRACEBACK", traceback_data)
 
                 new_client.writer.write_eof()
