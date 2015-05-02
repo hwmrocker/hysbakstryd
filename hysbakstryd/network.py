@@ -1,10 +1,14 @@
 import asyncio
+import uuid
+from autobahn.websocket.http import HttpException
 import msgpack
 import traceback
 import os
 import logging
 import zeroconf
 import platform
+
+from autobahn.asyncio.websocket import WebSocketServerProtocol
 
 # we cannot use from .game import Game because we need to be able to reload it
 import hysbakstryd.game
@@ -38,8 +42,8 @@ class ClientProtocol:
 
     def __init__(self):
         self.game_client = None
-        self.state = "pending"
-        self._state = None      # state buffer for pausing a client
+        self.game_client_state = "pending"
+        self._game_client_state = None      # state buffer for pausing a client
         self.game = None        # make sure that this is set immediately after initialization!!
         self.msg_buffer = []
         self.logger = logging
@@ -65,13 +69,13 @@ class ClientProtocol:
 
     def pause(self):
         self.logger.info("pausing client")
-        self._state, self.state = self.state, "pause"
+        self._game_client_state, self.game_client_state = self.game_client_state, "pause"
 
     def resume(self):
-        assert self.state == "pause"
+        assert self.game_client_state == "pause"
         self.logger.info("resuming client")
 
-        self.state, self._state = self._state, None
+        self.game_client_state, self._game_client_state = self._game_client_state, None
 
         if self.msg_buffer:
             self.logger.info("flushing message buffer with {} messages".format(len(self.msg_buffer)))
@@ -110,16 +114,16 @@ class ClientProtocol:
                 self.inform("ERR", "message keys should only be strings {'type': 'foo', 'bar': 'ok', 42: 'not ok'}")
                 return
 
-        if self.state == "pause":
+        if self.game_client_state == "pause":
             self.buffer_msg(msg)
-        elif self.state == "pending" and msg_type == "connect":
+        elif self.game_client_state == "pending" and msg_type == "connect":
             self.logger.info("connecting")
             # TODO we should put a try catch around the registering
             self.game_client = self.game.register(self, **msg_data)
             self.logger = self.game_client.logger
-            self.state = "connected"
+            self.game_client_state = "connected"
             self.logger.info("connected")
-        elif self.state == "connected":
+        elif self.game_client_state == "connected":
             try:
                 self.game.handle(self.game_client, msg_type, msg_data)
             except AttributeError:
@@ -159,7 +163,56 @@ class NetworkClient(ClientProtocol):
         self.writer.write_eof()
 
 
+class WebsocketClient(WebSocketServerProtocol, ClientProtocol):
+    """A client that connects through a websocket."""
 
+    # please set this to the currently running server instance, otherwise we won't know where to connect to
+    # and will drop all connections immediately...
+    SERVER = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.peer_name = uuid.uuid4()
+        self.logger = logging
+        self.unpacker = msgpack.Unpacker(encoding='utf-8')
+
+    def inform(self, msg_type, msg_data, from_id="__master__"):
+        payload = msgpack.packb(msgpack.packb((msg_type, from_id, msg_data)))
+        self.sendMessage(payload=payload, isBinary=True)
+        # TODO: exceptions?!
+
+    def close(self):
+        self.sendClose(reason="Game stopped")
+
+    def onConnect(self, request):
+        if WebsocketClient.SERVER is None:
+            self.logger.critical("SERVER variable not set, cannot connect to game")
+            raise HttpException('Game server not reachable')
+
+        return None  # accept without conditions
+
+    def onOpen(self):
+        self.logger.info("hallo on WS: {}".format(self.peer))
+        WebsocketClient.SERVER.register_client(self, self.peer)
+
+    def onMessage(self, payload, isBinary):
+        if not isBinary:
+            self.logger.warning("received non-binary message from client {}".format(self.peer))
+            self.sendMessage("sent messages must be binary and msgpack-encoded")
+        else:
+            # TODO: is this necessary? not really...
+            self.unpacker.feed(payload)
+            for msg in self.unpacker:
+                self.handle_msg(msg)
+
+    def onClose(self, wasClean, code, reason):
+        self.logger.info('disconnected, code: {}, reason: {}'.format(code, reason))
+        self.game_client_state = 'disconnected'
+
+
+########################################################################################################################
+# actual web connection handling and stuff!
 
 
 class Server:
@@ -271,7 +324,6 @@ class Server:
                 pack = yield from reader.read(1024)
                 unpacker.feed(pack)
                 for msg in unpacker:
-                    print("msg: {}".format(msg))
                     new_client.handle_msg(msg)
             except ConnectionResetError as e:
                 logging.info('Connection Reset: {}'.format(e))
