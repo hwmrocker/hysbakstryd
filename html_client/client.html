@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+   <head>
+     <script src="msgpack.js"></script>
+     <script src="client.js"></script>
+   </head>
+
+   <body>
+
+   <p>
+   <form id="username_form">
+     <label>host
+       <input type="text" id="connect_hostname" value="127.0.0.1"/>
+     </label>
+
+     <label>port
+       <input type="text" id="connect_port" value="9000"/>
+     </label>
+     <br/>
+
+     <label>username
+       <input type="text" id="connect_username" value="observer"/>
+     </label>
+
+     <label>password
+       <input type="password" id="connect_password" value="observer"/>
+     </label>
+   </form>
+   <button onclick='connect_to_server();'>Connect to the server</button>
+   </p>
+
+   <p style="text-align: center;">
+     <small>Hint: open your console (F12) to see what's happening!</small>
+   </p>
+   </body>
+
+</html>
