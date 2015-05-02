@@ -14,47 +14,96 @@ from importlib import reload
 TICK_TIME = 0.1
 
 
-class Client:
+class ClientProtocol:
+    """An interface for defining a client for the game.
 
-    def __init__(self, reader, writer, game):
-        self.reader = reader
-        self.writer = writer
-        self.peername = None
+    This will usually be networked clients, but can be anything you want.
+    """
+
+    # ##################################################################################################################
+    # interface methods -- implement these to make a working client!
+
+    def inform(self, msg_type, msg_data, from_id="__master__"):
+        """Inform this client about something that happened."""
+        ...
+
+    # conversely: call self.handle_msg(msg) for messages that the client received
+
+    def close(self):
+        """Close the connection for this client."""
+        ...
+
+    # ##################################################################################################################
+    # inner workings -- you should probably not change these functions
+
+    def __init__(self):
         self.game_client = None
         self.state = "pending"
-        self._state = None
-        self.game = game
+        self._state = None      # state buffer for pausing a client
+        self.game = None        # make sure that this is set immediately after initialization!!
         self.msg_buffer = []
         self.logger = logging
 
-    def inform(self, msg_type, msg_data, from_id="__master__"):
-        try:
-            self.writer.write(msgpack.packb((msg_type, from_id, msg_data)))
-        except:
-            self.logger.error(traceback.format_exc())
-            self.inform = lambda *x, **xa: None
-
     def privacy_complaint_msg(self, msg):
-        msg_copy = msg.copy()
-        if "password" in msg_copy:
-            msg_copy["password"] = "****"
-        return msg_copy
+        """Mask passwords in a message."""
+        try:
+            msg_copy = msg.copy()
+            if "password" in msg_copy:
+                msg_copy["password"] = "****"
+            return msg_copy
+        except Exception:
+            # didn't work, so probably didn't contain any passwords anyway
+            return msg
+
+    def buffer_msg(self, msg):
+        self.msg_buffer.append(msg)
+
+    def flush(self):
+        while self.msg_buffer:
+            msg = self.msg_buffer.pop(0)
+            self.handle_msg(msg)
+
+    def pause(self):
+        self.logger.info("pausing client")
+        self._state, self.state = self.state, "pause"
+
+    def resume(self):
+        assert self.state == "pause"
+        self.logger.info("resuming client")
+
+        self.state, self._state = self._state, None
+
+        if self.msg_buffer:
+            self.logger.info("flushing message buffer with {} messages".format(len(self.msg_buffer)))
+            self.flush()
+
+    def bye(self):
+        self.inform = lambda *x, **xa: None    # blind the inform function because it won't work at this point anyway
+        try:
+            self.game.unregister(self)
+        except:
+            # TODO check if this is always an error, maybe we should fix this in game.unregister and
+            # not catch it here
+            self.logger.error("unregister game failed")
+            raise
 
     def handle_msg(self, msg):
-        self.logger.debug("handle {}".format(self.privacy_complaint_msg(msg)))
+        """Handle a sent message: decoding, deciding and calling the necessary game transitions."""
+        self.logger.debug("handling {}".format(self.privacy_complaint_msg(msg)))
         try:
             msg_type = msg["type"]
             msg_data = msg.copy()
             msg_data.pop("type")
         except KeyError:
             self.logger.info("msg was not valid because it didn't contain a type key, it was rejected")
-            self.inform("ERR", "messages should be a dict and contain a type {'type': 'a_string'}")
+            self.inform("ERR", "invalid message format: messages should be a dict and contain a type {'type': 'a_string'}")
             return
         except:
             self.logger.info("could not handle msg because it was not very valid")
-            self.inform("ERR", "invalid message")
+            self.inform("ERR", "invalid message: messages must be msgpack-encoded dictionaries")
             return
 
+        # TODO: is this check necessary?!
         for key in msg_data.keys():
             if not isinstance(key, str):
                 self.logger.info("msg was not valid, it was rejected because a key was not of type str")
@@ -90,35 +139,27 @@ class Client:
                 self.inform("ERR", error)
                 self.inform("TRACEBACK", traceback_data)
 
-    def buffer_msg(self, msg):
-        self.msg_buffer.append(msg)
 
-    def pause(self):
-        self.logger.info("pause client")
-        self._state, self.state = self.state, "pause"
+class NetworkClient(ClientProtocol):
 
-    def resume(self):
-        assert self.state == "pause"
-        self.logger.info("resume client")
+    def __init__(self, reader, writer):
+        super().__init__()
 
-        self.state, self._state = self._state, None
+        self.reader = reader
+        self.writer = writer
 
-        if self.msg_buffer:
-            self.logger.info("flush buffer")
-        # flush the buffer
-        while (self.msg_buffer):
-            msg = self.msg_buffer.pop(0)
-            self.handle_msg(msg)
-
-    def bye(self):
-        self.inform = lambda *x, **xa: None
+    def inform(self, msg_type, msg_data, from_id="__master__"):
         try:
-            self.game.unregister(self)
+            self.writer.write(msgpack.packb((msg_type, from_id, msg_data)))
         except:
-            # TODO check if this is always an error, maybe we should fix this in game.unregister and
-            # not catch it here
-            self.logger.error("unregister game failed")
-            raise
+            self.logger.error(traceback.format_exc())
+            self.inform = lambda *x, **xa: None
+
+    def close(self):
+        self.writer.write_eof()
+
+
+
 
 
 class Server:
@@ -192,7 +233,7 @@ class Server:
         while self.running:
             self.loop.call_soon(self.game.tick)
             yield from asyncio.sleep(TICK_TIME)
-        logger.error('TICKER STOPS')
+        logging.error('TICKER STOPS')
 
     def send_to_client(self, peername, msg_type, msg_args):
         client = self.clients[peername]
@@ -206,7 +247,7 @@ class Server:
 
     def close_all_clients(self):
         for peername, client in self.clients.items():
-            client.writer.write_eof()
+            client.close()
 
     def pause_all_clients(self):
         for peername, client in self.clients.items():
@@ -220,14 +261,17 @@ class Server:
     def client_connected(self, reader, writer):
         peername = writer.transport.get_extra_info('peername')
         logging.info("hallo {}".format(peername))
-        new_client = Client(reader, writer, self.game)
-        self.clients[peername] = new_client
+        new_client = NetworkClient(reader, writer)
+        self.register_client(new_client, peername)
+
+        # should this not be part of the client?!
         unpacker = msgpack.Unpacker(encoding='utf-8')
         while not reader.at_eof():
             try:
                 pack = yield from reader.read(1024)
                 unpacker.feed(pack)
                 for msg in unpacker:
+                    print("msg: {}".format(msg))
                     new_client.handle_msg(msg)
             except ConnectionResetError as e:
                 logging.info('Connection Reset: {}'.format(e))
@@ -238,11 +282,11 @@ class Server:
                 error = 'ERROR: {}'.format(e)
                 traceback_data = traceback.format_exc()
                 logging.critical(error)
-                logging.critical("This error should be catched in the client, not here")
+                logging.critical("This error should be caught in the client, not here")
                 logging.critical(traceback_data)
 
                 err_msg = """Your message was invalid and could not be handled.
-This error that appeared during the handling of your message was: {}""".format(error)
+The error that appeared during the handling of your message was: {}""".format(error)
                 
                 self.send_to_client(peername, "ERR", err_msg)
                 self.send_to_client(peername, "TRACEBACK", traceback_data)
@@ -252,6 +296,14 @@ This error that appeared during the handling of your message was: {}""".format(e
                 del self.clients[peername]
                 return
 
+    def register_client(self, client, peer_name):
+        """Register a client, ie. an object that conforms to ClientProtocol."""
+        logging.info("registering: {}".format(peer_name))
+        self.clients[peer_name] = client
+        client.game = self.game
+
     def close(self):
         self.send_to_all_clients("BYE", [])
         self.close_all_clients()
+
+
