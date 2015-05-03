@@ -122,6 +122,10 @@ window.onload = function() {
             log("Connection closed.");
             socket = null;
             isopen = false;
+            $('#connection-form').toggle("fast");
+            $('#connected-form').toggle("fast");
+            $('#title-row').animate({height: '20%'});
+            $('#title-row h1').animate({'margin-top': '0%'});
         };
 
     };
@@ -129,10 +133,6 @@ window.onload = function() {
     this.log_out = function() {
         // $('#connection-form').animate({height: '', opacity: 1});
         socket.close();
-        $('#connection-form').toggle("fast");
-        $('#connected-form').toggle("fast");
-        $('#title-row').animate({height: '20%'});
-        $('#title-row h1').animate({'margin-top': '0%'});
     };
 
     this.send_to_server = function() {
