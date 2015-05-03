@@ -21,12 +21,13 @@ $.fn.selectRange = function(start, end) {
 window.onload = function() {
 
     var help_line_template = Handlebars.compile($('#help-line-template').html());
+    var log_element = document.getElementById('log');
 
     this.log = function(s) {
-        var log_element = document.getElementById('log');
         var ts = '[' + new Date().toISOString().slice(0, 19).replace('T', ' ') + ']';
         log_element.innerText = ts + " " + s + '\n' + log_element.innerText;
-    }
+        log_element.scrollTop = 0;
+    };
 
     this.connect_to_server = function() {
         var hostname_el = document.getElementById('connect_hostname');
