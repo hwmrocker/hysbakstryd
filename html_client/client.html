@@ -6,6 +6,8 @@
   <script src="client.js"></script>
 
   <style>
+    html {height: 100%;}
+    body {height: 100%;}
     h1 {
       color: #000;
       font-size: 100px;
@@ -46,9 +48,11 @@
   <button onclick='connect_to_server();'>Connect to the server</button>
 </div>
 
-<p style="text-align: center;">
-  <small>Hint: open your console (F12) to see what's happening!</small>
-</p>
+<div class="row" style="height: 50%;">
+  <pre id="log" style="background-color: #ddd; height: 100%; overflow: scroll;">
+  </pre>
+</div>
+
 </body>
 
 </html>
