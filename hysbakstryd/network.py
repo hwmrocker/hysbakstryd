@@ -178,7 +178,7 @@ class WebsocketClient(WebSocketServerProtocol, ClientProtocol):
         self.unpacker = msgpack.Unpacker(encoding='utf-8')
 
     def inform(self, msg_type, msg_data, from_id="__master__"):
-        payload = msgpack.packb(msgpack.packb((msg_type, from_id, msg_data)))
+        payload = msgpack.packb((msg_type, from_id, msg_data))
         self.sendMessage(payload=payload, isBinary=True)
         # TODO: exceptions?!
 
