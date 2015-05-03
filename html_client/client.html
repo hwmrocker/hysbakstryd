@@ -1,37 +1,54 @@
 <!DOCTYPE html>
 <html>
-   <head>
-     <script src="msgpack.js"></script>
-     <script src="client.js"></script>
-   </head>
+<head>
+  <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/foundation/5.5.2/css/foundation.css">
+  <script src="msgpack.js"></script>
+  <script src="client.js"></script>
 
-   <body>
+  <style>
+    h1 {
+      color: #000;
+      font-size: 100px;
+      margin: 30px auto;
+      text-align: center;
+      text-shadow: 3px 3px 1px #ffd217, 6px 6px 2px #5ac7ff, 9px 9px 3px #ffd217, 12px 12px 4px #5ac7ff;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
 
-   <p>
-   <form id="username_form">
-     <label>host
-       <input type="text" id="connect_hostname" value="127.0.0.1"/>
-     </label>
+<body>
 
-     <label>port
-       <input type="text" id="connect_port" value="9000"/>
-     </label>
-     <br/>
+<div class="row">
+  <h1>HYSBAKSTRYD!!!</h1>
+</div>
 
-     <label>username
-       <input type="text" id="connect_username" value="observer"/>
-     </label>
+<div class="row" id="connection-form">
+  <form id="username_form">
+    <div class="row">
+      <label class="small-3 columns">username
+        <input type="text" id="connect_username" value="observer"/>
+      </label>
 
-     <label>password
-       <input type="password" id="connect_password" value="observer"/>
-     </label>
-   </form>
-   <button onclick='connect_to_server();'>Connect to the server</button>
-   </p>
+      <label class="small-3 columns">password
+        <input type="password" id="connect_password" value="observer"/>
+      </label>
+      <label class="small-3 columns">host
+        <input type="text" id="connect_hostname" value="127.0.0.1"/>
+      </label>
 
-   <p style="text-align: center;">
-     <small>Hint: open your console (F12) to see what's happening!</small>
-   </p>
-   </body>
+      <label class="small-3 columns">port
+        <input type="text" id="connect_port" value="9000"/>
+      </label>
+    </div>
+
+  </form>
+  <button onclick='connect_to_server();'>Connect to the server</button>
+</div>
+
+<p style="text-align: center;">
+  <small>Hint: open your console (F12) to see what's happening!</small>
+</p>
+</body>
 
 </html>
