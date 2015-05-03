@@ -43,6 +43,12 @@ window.onload = function() {
         msg_map = {
             'WELCOME': function(msg_type, from, data) {
                 log('logged in as ' + data);
+                $('#connection-form').toggle("fast");
+                $('#connected-form').toggle("fast");
+                hostname_el.disabled = undefined;
+                port_el.disabled = undefined;
+                username_el.disabled = undefined;
+                password_el.disabled = undefined;
             },
             'WRONG PASSWORD': function(m,f,t) {
                 log('could not log in, wrong password');
@@ -74,6 +80,13 @@ window.onload = function() {
             isopen = false;
         };
 
+    };
+
+    this.log_out = function() {
+        // $('#connection-form').animate({height: '', opacity: 1});
+        socket.close();
+        $('#connection-form').toggle("fast");
+        $('#connected-form').toggle("fast");
     };
 
     log('waiting for input');
