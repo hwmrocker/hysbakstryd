@@ -131,6 +131,8 @@ window.onload = function() {
         socket.close();
         $('#connection-form').toggle("fast");
         $('#connected-form').toggle("fast");
+        $('#title-row').animate({height: '20%'});
+        $('#title-row h1').animate({'margin-top': '0%'});
     };
 
     this.send_to_server = function() {
