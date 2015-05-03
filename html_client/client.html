@@ -27,7 +27,20 @@
 </div>
 
 <div class="row" id="connected-form" style="display: none;">
-  <button onclick='log_out();'>Log out</button>
+  <form id="action-form">
+    <div class="row">
+      <label class="small-3 columns">type
+        <input type="text" id="action_type" value="get_state"/>
+      </label>
+
+      <label class="small-9 columns">data
+        <input type="text" id="action_data" value="{}"/>
+      </label>
+    </div>
+
+  </form>
+  <button onclick='send_to_server();'>Send command</button>
+  <button onclick='log_out();' class="right secondary">Log out</button>
 </div>
 
 <div class="row" id="connection-form">

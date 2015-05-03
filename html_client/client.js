@@ -69,7 +69,12 @@ window.onload = function() {
                 msg_map[msg_type](msg_type, msg_from, msg_data);
             }
             else {
-                log('received: ' + msg_type + ' from ' + msg_from + ' with: ' + msg_data);
+                if (typeof msg_data === 'string') {
+                    log('received: ' + msg_type + ' from ' + msg_from + ' with: ' + msg_data);
+                }
+                else {
+                    log('received: ' + msg_type + ' from ' + msg_from + ' with: ' + JSON.stringify(msg_data));
+                }
             }
 
         };
@@ -88,6 +93,22 @@ window.onload = function() {
         $('#connection-form').toggle("fast");
         $('#connected-form').toggle("fast");
     };
+
+    this.send_to_server = function() {
+        try {
+            var type = $('#action_type').val();
+            var data = $.parseJSON($('#action_data').val());
+            var to_send = $.extend({'type': type}, data);
+            log('sending: ' + JSON.stringify(to_send));
+            var buf = this.msgpack.pack(to_send);
+            var arr = new Uint8Array(buf);
+            socket.send(arr);
+        } catch(e) {
+            log('could not decode data, please enter a valid JSON string');
+        }
+
+    };
+
 
     log('waiting for input');
 
