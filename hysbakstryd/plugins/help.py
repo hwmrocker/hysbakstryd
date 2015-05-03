@@ -1,8 +1,8 @@
 from . import Plugin
+import inspect
 
 
 class HelpPlugin(Plugin):
-
     """
     Show help on registered plugins.
 
@@ -68,6 +68,19 @@ then wait a little while and get your state with:
             return (), ('help_for_commands', list(self.game.command_map.keys())), None
 
         if command in self.game.command_map:
-            return (), ('help_for_command', self.game.command_map[command].__doc__), None
+            command_name = command
+            command = self.game.command_map[command_name]
+            doc = inspect.getdoc(command)
+            argspec = inspect.getargspec(command)
+
+            if argspec.defaults:
+                params = argspec.args[2:-len(argspec.defaults)]
+                defaultargs = argspec.args[-len(argspec.defaults):]
+                optional = {k: v for k, v in zip(defaultargs, argspec.defaults)}
+            else:
+                params = argspec.args[2:]
+                optional = {}
+
+            return (), ('help_for_command', {'name': command_name, 'doc': doc, 'parameters': params, 'optional': optional}), None
 
         return (), ('help_for_command', 'command not found'), None
