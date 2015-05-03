@@ -73,6 +73,7 @@ class Game:
                 pass
             else:
                 logger.warning("old password is different")
+                network_client.inform("WRONG PASSWORD", username)
                 raise WrongPassword()
         else:
             logger.info("new password")
