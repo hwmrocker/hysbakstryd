@@ -3,6 +3,7 @@
 <head>
   <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/foundation/5.5.2/css/foundation.css">
   <script src="http://code.jquery.com/jquery-2.1.4.min.js"></script>
+  <script src="handlebars.js"></script>
   <script src="msgpack.js"></script>
   <script src="client.js"></script>
 
@@ -17,20 +18,30 @@
       text-shadow: 3px 3px 1px #ffd217, 6px 6px 2px #5ac7ff, 9px 9px 3px #ffd217, 12px 12px 4px #5ac7ff;
       text-transform: uppercase;
     }
+    .row {
+      overflow: hidden;
+    }
   </style>
+
+  <script id="help-line-template" type="text/x-handlebars-template">
+  <li>
+    <a href="javascript:set_command('{{ name }}');">{{ name }}</a>
+  </li>
+  </script>
+
 </head>
 
 <body>
 
-<div class="row">
+<div class="row" id="title-row">
   <h1>HYSBAKSTRYD!!!</h1>
 </div>
 
-<div class="row" id="connected-form" style="display: none;">
+<div class="row" id="connected-form" style="display: none; overflow: scroll;">
   <form id="action-form">
     <div class="row">
       <label class="small-3 columns">type
-        <input type="text" id="action_type" value="get_state"/>
+        <input type="text" id="action_type" value="help"/>
       </label>
 
       <label class="small-9 columns">data
@@ -41,6 +52,13 @@
   </form>
   <button onclick='send_to_server();'>Send command</button>
   <button onclick='log_out();' class="right secondary">Log out</button>
+
+  <div>
+    <h2>available commands</h2>
+    <ul id="command-list">
+
+    </ul>
+  </div>
 </div>
 
 <div class="row" id="connection-form">

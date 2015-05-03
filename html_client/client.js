@@ -2,7 +2,25 @@
 var socket = null;
 var isopen = false;
 
+$.fn.selectRange = function(start, end) {
+    if(!end) end = start;
+    return this.each(function() {
+        if (this.setSelectionRange) {
+            this.focus();
+            this.setSelectionRange(start, end);
+        } else if (this.createTextRange) {
+            var range = this.createTextRange();
+            range.collapse(true);
+            range.moveEnd('character', end);
+            range.moveStart('character', start);
+            range.select();
+        }
+    });
+};
+
 window.onload = function() {
+
+    var help_line_template = Handlebars.compile($('#help-line-template').html());
 
     this.log = function(s) {
         var log_element = document.getElementById('log');
@@ -31,13 +49,16 @@ window.onload = function() {
         socket.binaryType = "arraybuffer";
 
 
-        var buf = this.msgpack.pack({'type': 'connect', 'username': username, 'password': password});
-        var arr = new Uint8Array(buf);
+        socket.send_msgpack = function(obj) {
+            var buf = window.msgpack.pack(obj);
+            var arr = new Uint8Array(buf);
+            socket.send(arr);
+        };
 
         socket.onopen = function() {
             log("connection established, logging in...");
             isopen = true;
-            socket.send(arr);
+            socket.send_msgpack({'type': 'connect', 'username': username, 'password': password});
         };
 
         msg_map = {
@@ -49,13 +70,30 @@ window.onload = function() {
                 port_el.disabled = undefined;
                 username_el.disabled = undefined;
                 password_el.disabled = undefined;
+
+                $('#title-row').animate({height: '2%'});
+                $('#title-row h1').animate({'margin-top': '-5.8%'});
+                $('#connected-form').animate({height: '48%'});
+
+                socket.send_msgpack({'type': 'help_command'});
             },
-            'WRONG PASSWORD': function(m,f,t) {
+            'WRONG PASSWORD': function(t,f,d) {
                 log('could not log in, wrong password');
                 hostname_el.disabled = undefined;
                 port_el.disabled = undefined;
                 username_el.disabled = undefined;
                 password_el.disabled = undefined;
+            },
+            'help_for_commands': function(t,f,d) {
+
+                var commands = d;
+                var list_el = $('#command-list');
+                commands.sort();
+                list_el.empty();
+                for (var index in commands) {
+                    context = {name: commands[index]};
+                    list_el.append(help_line_template(context));
+                }
             }
         };
 
@@ -109,6 +147,17 @@ window.onload = function() {
 
     };
 
+    window.set_command = function(command_name, command_data) {
+        $('#action_type').val(command_name);
+        if (command_data) {
+            $('#action_data').val(command_data);
+        }
+        else {
+            $('#action_data').val('{}');
+            $('#action_data').selectRange(1);
+        }
+        $('#action_data').focus();
+    };
 
     log('waiting for input');
 
