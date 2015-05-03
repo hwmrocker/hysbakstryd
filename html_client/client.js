@@ -21,6 +21,8 @@ $.fn.selectRange = function(start, end) {
 window.onload = function() {
 
     var help_line_template = Handlebars.compile($('#help-line-template').html());
+    var help_command_template = Handlebars.compile("Received help for {{ command_name }}:\n{{{ doc }}}\n  Parameters: {{{ params }}}\n  Optional: {{{ optional }}}");
+
     var log_element = document.getElementById('log');
 
     this.log = function(s) {
@@ -95,6 +97,14 @@ window.onload = function() {
                     context = {name: commands[index]};
                     list_el.append(help_line_template(context));
                 }
+            },
+            'help_for_command': function(t,f,d) {
+                log(help_command_template({
+                    'command_name': d['name'],
+                    'doc': d['doc'],
+                    'params': JSON.stringify(d['params']),
+                    'optional': JSON.stringify(d['optional'])
+                }));
             }
         };
 
