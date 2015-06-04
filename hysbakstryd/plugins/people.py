@@ -18,6 +18,8 @@ class PeoplePlugin(Plugin):
     def initialize(self, game):
         super().initialize(game)
 
+        self._person_wants_to = {}
+        
         game.world_state['waiting_up'] = {i: [] for i in range(10)}
         game.world_state['waiting_down'] = {i: [] for i in range(10)}
         game.world_state['people_transported'] = 0
@@ -41,11 +43,18 @@ class PeoplePlugin(Plugin):
         # We want maximum 4 people
         while len(on_board) < 4 and waiting_here:
             p = waiting_here.pop(0)
-            if p['direction'] == 'up':
-                p['wants_to'] = random.randint(level + 1, 9)
+            if p in self._person_wants_to:
+                p['wants_to'] = self._person_wants_to[p]
+                del self._person_wants_to[p]
             else:
-                p['wants_to'] = random.randint(0, level - 1)
-            v['_resume_at'] += 3
+                # this is just a guard against a restarted server and shouldn't happen
+                logger.warn('  person not found in _wants_to: {}'.format(p))
+                if p['direction'] == 'up':
+                    p['wants_to'] = random.randint(level + 1, 9)
+                else:
+                    p['wants_to'] = random.randint(0, level - 1)
+                    
+            v['_resume_at'] += 3   # each boarding person takes 3 ticks to enter
             on_board.append(p)
             self.emit(client, 'person_boards', p)
             logger.info("getting on board", p)
@@ -81,6 +90,8 @@ class PeoplePlugin(Plugin):
                 'appeared_time': time,
                 'type': p_type
             }
+
+            self._person_wants_to[person] = wants_to
 
             if person['direction'] == 'up':
                 self.game.world_state['waiting_up'][appears_in].append(person)
