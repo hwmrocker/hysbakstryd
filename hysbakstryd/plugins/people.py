@@ -66,11 +66,11 @@ class PeoplePlugin(Plugin):
     def tick(self, time, clients):
         """Generate new people if necessary. NEW PEOPLE, HAHAHAHA!"""
 
-        # the probability for new people appearing
-        p = len(clients) * config.plugins.people.people_appear_per_elevator_shaft
+        # the number of new people appearing
+        num_p = len(clients) * config.plugins.people.people_appear_per_elevator_shaft
 
-        # TODO: make everything parametric so we can simulate *REAL* people!
-        while random.random() > p:
+        while random.random() < num_p:
+            num_p -= 1
             levels_with_space = [l for l in range(10)
                 if ((len(self.game.world_state['waiting_up'][l]) +
                      len(self.game.world_state['waiting_down'][l])) < config.plugins.people.max_people_waiting_per_level)]
