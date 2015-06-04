@@ -1,6 +1,8 @@
 import logging
 logger = logging.getLogger("game")
 
+import config
+
 
 class Plugin:
     """
@@ -61,3 +63,18 @@ class Plugin:
         is a function on the plugin that will be called each tick.
         """
         pass
+
+
+
+    # utility functions
+    @staticmethod
+    def time_of_day(tick_time):
+        """
+        Compute the fractional time of day from the current tick time.
+
+        The time is returned in fractions in [0, 1). E.g. noon ~~ 0.5, midnight ~~ 0.0,
+        4am ~~ 0.1666...
+        If you want "readable" time, just multiply by 24.
+        """
+        
+        return (tick_time % config.game.ticks_per_day) / config.game.ticks_per_day

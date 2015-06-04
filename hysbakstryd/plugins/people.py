@@ -7,6 +7,8 @@ Will make new People! HAHA!
 import random
 from . import Plugin, logger
 
+import config
+
 
 class PeoplePlugin(Plugin):
 
@@ -64,14 +66,14 @@ class PeoplePlugin(Plugin):
     def tick(self, time, clients):
         """Generate new people if necessary. NEW PEOPLE, HAHAHAHA!"""
 
-        p = 0.5  # the probability for new people appearing
-        max_people_per_level = 20
+        # the probability for new people appearing
+        p = len(clients) * config.plugins.people.people_appear_per_elevator_shaft
 
         # TODO: make everything parametric so we can simulate *REAL* people!
         while random.random() > p:
             levels_with_space = [l for l in range(10)
                 if ((len(self.game.world_state['waiting_up'][l]) +
-                    len(self.game.world_state['waiting_down'][l])) < max_people_per_level)]
+                     len(self.game.world_state['waiting_down'][l])) < config.plugins.people.max_people_waiting_per_level)]
             # only spawn new people if there is enough room in the lobby
             if not levels_with_space:
                 break
