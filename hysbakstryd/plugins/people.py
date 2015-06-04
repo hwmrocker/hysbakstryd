@@ -81,8 +81,17 @@ class PeoplePlugin(Plugin):
             wants_to = random.randint(0, 9)
             while appears_in == wants_to:
                 wants_to = random.randint(0, 9)
+                
+            # https://www-genesis.destatis.de/genesis/online/data?operation=abruftabelleBearbeiten&levelindex=2&levelid=1433444898972&auswahloperation=abruftabelleAuspraegungAuswaehlen&auswahlverzeichnis=ordnungsstruktur&auswahlziel=werteabruf&selectionname=12612-0001&auswahltext=&werteabruf=Werteabruf
+            if random.random() < 349820 / 682069:
+                p_type = 'm'
+            else:
+                p_type = 'f'
 
-            p_type = random.choice(['m', 'f', 'm_child', 'f_child'])
+            # https://www-genesis.destatis.de/genesis/online/data?operation=abruftabelleBearbeiten&levelindex=2&levelid=1433445078151&auswahloperation=abruftabelleAuspraegungAuswaehlen&auswahlverzeichnis=ordnungsstruktur&auswahlziel=werteabruf&selectionname=12111-0002&auswahltext=&werteabruf=Werteabruf
+            # 1 984 523 + 2 025 183 + 6 795 585 + 2 329 061 = 7 018 352
+            if random.random() < 7018352 / 80219695:
+                p_type += '_child'
 
             if random.random() < 0.001:
                 p_type = 'dog'
