@@ -13,15 +13,15 @@ def setup_logging():
     logging.config.dictConfig(config)
 
 
-def main(args):
+def main_command(bind_address='0.0.0.0', port=8000, ws_port=9000):
     setup_logging()
     loop = asyncio.get_event_loop()
 
-    server = Server(loop, port=8002)
-    ws_server = WebSocketServerFactory("ws://localhost:9000", debug=False)
+    server = Server(loop, host=bind_address, port=port)
+    ws_server = WebSocketServerFactory("ws://{}:{}".format(bind_address, ws_port), debug=False)
     ws_server.protocol = WebsocketClient
     WebsocketClient.SERVER = server
-    coroutine = loop.create_server(ws_server, '0.0.0.0', 9000)
+    coroutine = loop.create_server(ws_server, bind_address, ws_port)
     
     try:
         loop.run_until_complete(server.run_server())
@@ -33,5 +33,6 @@ def main(args):
         loop.close()
 
 if __name__ == "__main__":
+    import commandeer
+    commandeer.cli(default_command=main_command)
 
-    main({})
