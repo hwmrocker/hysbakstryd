@@ -51,7 +51,6 @@ window.onload = function() {
         socket = new WebSocket("ws://" + hostname + ":" + port);
         socket.binaryType = "arraybuffer";
 
-
         socket.send_msgpack = function(obj) {
             var buf = window.msgpack.pack(obj);
             var arr = new Uint8Array(buf);
@@ -65,8 +64,8 @@ window.onload = function() {
         };
 
         msg_map = {
-            'WELCOME': function(msg_type, from, data) {
-                log('logged in as ' + data);
+            'LOGGEDIN': function(msg_type, from, data) {
+                log("logged in as '" + data.username + "'\n    " + data.msg);
                 $('#connection-form').toggle("fast");
                 $('#connected-form').toggle("fast");
                 hostname_el.disabled = undefined;
@@ -79,6 +78,12 @@ window.onload = function() {
                 $('#connected-form').animate({height: '48%'});
 
                 socket.send_msgpack({'type': 'help_command'});
+            },
+            'activated': function(t,f,d) {
+                log('You have been activated for play.\n    ' + d.msg);
+            },
+            'WELCOME': function(t,f,d) {
+                log('New player \'' + d + '\' has joined the game.');
             },
             'WRONG PASSWORD': function(t,f,d) {
                 log('could not log in, wrong password');
@@ -129,13 +134,27 @@ window.onload = function() {
         };
 
         socket.onclose = function(e) {
-            log("Connection closed.");
-            socket = null;
-            isopen = false;
-            $('#connection-form').toggle("fast");
-            $('#connected-form').toggle("fast");
-            $('#title-row').animate({height: '20%'});
-            $('#title-row h1').animate({'margin-top': '0%'});
+            if (isopen) {
+                log("Connection closed.");
+                socket = null;
+                isopen = false;
+                $('#connection-form').toggle("fast");
+                $('#connected-form').toggle("fast");
+                $('#title-row').animate({height: '20%'});
+                $('#title-row h1').animate({'margin-top': '0%'});
+            }
+        };
+
+        socket.onerror = function(e) {
+            log("Connection received an error: not connected.");
+            if (isopen) {
+                socket = null;
+                isopen = false;
+                $('#connection-form').toggle("fast");
+                $('#connected-form').toggle("fast");
+                $('#title-row').animate({height: '20%'});
+                $('#title-row h1').animate({'margin-top': '0%'});
+            }
         };
 
     };
@@ -170,6 +189,14 @@ window.onload = function() {
             $('#action_data').selectRange(1);
         }
         $('#action_data').focus();
+    };
+
+    window.activate_on_server = function() {
+        log('activating for play...');
+        var buf = this.msgpack.pack({'type': 'activate'});
+        var arr = new Uint8Array(buf);
+        socket.send(arr);
+
     };
 
     log('waiting for input');
