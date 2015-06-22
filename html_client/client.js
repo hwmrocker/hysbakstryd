@@ -107,7 +107,7 @@ window.onload = function() {
                 log(help_command_template({
                     'command_name': d['name'],
                     'doc': d['doc'],
-                    'params': JSON.stringify(d['params']),
+                    'params': JSON.stringify(d['parameters']),
                     'optional': JSON.stringify(d['optional'])
                 }));
             }
@@ -196,7 +196,12 @@ window.onload = function() {
         var buf = this.msgpack.pack({'type': 'activate'});
         var arr = new Uint8Array(buf);
         socket.send(arr);
+    };
 
+    window.help_for_command = function(command_name) {
+        var buf = this.msgpack.pack({'type': 'help_command', 'command': command_name});
+        var arr = new Uint8Array(buf);
+        socket.send(arr);
     };
 
     log('waiting for input');

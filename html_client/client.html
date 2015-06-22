@@ -24,8 +24,8 @@
   </style>
 
   <script id="help-line-template" type="text/x-handlebars-template">
-  <li>
-    <a href="javascript:set_command('{{ name }}');">{{ name }}</a>
+  <li id="{{ name }}">
+    <a href="javascript:set_command('{{ name }}');">{{ name }}</a> <a href="javascript:help_for_command('{{ name }}')"><span class="secondary round label">?</span></a>
   </li>
   </script>
 
