@@ -34,5 +34,5 @@ def main_command(bind_address='0.0.0.0', port=8000, ws_port=9000):
 
 if __name__ == "__main__":
     import commandeer
-    commandeer.cli(default_command=main_command)
+    commandeer.cli(default_command='main')
 
