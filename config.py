@@ -50,4 +50,8 @@ plugins.people = d({
     'max_people_waiting_per_level': 20,
 })
 
+plugins.server_observer = d({
+    # 'observe_events': True,
+    'with_args': True,
+})
 
