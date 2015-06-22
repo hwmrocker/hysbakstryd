@@ -18,3 +18,4 @@ class ShoutPlugin(Plugin):
         """
         self.logger.debug("{}: {}".format(client.name, foo))
         return (), None, ("RESHOUT", foo)
+    do_shout.allow_inactive = True

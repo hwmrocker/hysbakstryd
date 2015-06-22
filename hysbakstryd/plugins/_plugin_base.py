@@ -11,11 +11,14 @@ class Plugin:
     All methods whose name start with do_ will be registered as client commands that can
     be sent data. Each command should return a set of methods to be added to the client
     state. Each state method will be called in each tick until it returns a non-True
-    value, at
-    which point it will be removed from the client's states.
+    value, at which point it will be removed from the client's states.
+    Note that only active clients can call your commands. If you want to offer your
+    commands to inactive clients as well, set `.allow_inactive = True` on your command
+    functions. If you set `.active_allowed = False` on your command function, active
+    clients will not be able to call the command.
 
     Additionally, the Plugin `tick` method will be called each tick with a set of all
-    clients and can perform time-based or global processing at that point.
+    (active) clients and can perform time-based or global processing at that point.
 
     # TODO: more documentation and show examples
     """

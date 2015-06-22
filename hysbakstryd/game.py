@@ -23,6 +23,7 @@ class Game:
         logger.info("New game instanciated")
         self.user_to_passwords = {}
         self.game_clients = set()
+        self.active_clients = set()
         self.user_to_game_clients = {}
         self.user_to_network_clients = {}
         self.network_to_user = {}
@@ -35,7 +36,8 @@ class Game:
 
         # as soon as the call order is important, we need to change self.plugins to a list
         self.plugins = set()
-        self.command_map = {}
+        self.command_map = {}           # commands that can be called by active clients
+        self.inactive_command_map = {}  # commands that can be called by inactive clients
 
         self.register_plugins()
 
@@ -98,15 +100,26 @@ class Game:
         for p in self.plugins:
             p.connect(self.user_to_game_clients[username])
 
-        self.inform_all("WELCOME", username)
+        self.emit(self.user_to_game_clients[username], 'logged in')
+
+        network_client.inform(
+            'LOGGEDIN',
+            {
+                'username': username,
+                'msg': 'You have logged in and are inactive. When you want to start playing, send `activate`.'
+            }
+        )
 
         return self.user_to_game_clients[username]
 
     def unregister(self, network_client):
         logger.info("bye {}".format(network_client))
         username = self.network_to_user[network_client]
-        self.user_to_game_clients[username].online = False
-        self.game_clients.remove(self.user_to_game_clients[username])
+        game_client = self.user_to_game_clients[username]
+        game_client.online = False
+        game_client.active = False
+        self.game_clients.remove(game_client)
+        self.active_clients.remove(game_client)
         del self.user_to_network_clients[username]
         del self.network_to_user[network_client]
 
@@ -126,7 +139,16 @@ class Game:
     def register_plugin(self, plugin):
         # register commands
         for command_method_name in [m for m in dir(plugin) if m.startswith('do_') and callable(getattr(plugin, m))]:
-            self.command_map[command_method_name[3:]] = getattr(plugin, command_method_name)
+            command = getattr(plugin, command_method_name)
+            allow_active = getattr(command, 'allow_active', True)
+            allow_inactive = getattr(command, 'allow_inactive', False)
+
+            if allow_active:
+                self.command_map[command_method_name[3:]] = command
+
+            if allow_inactive:
+                self.inactive_command_map[command_method_name[3:]] = command
+
 
         self.plugins.add(plugin)
         plugin.initialize(self)
@@ -136,21 +158,44 @@ class Game:
             try:
                 plugin.take(client, event_name, *args, **kwargs)
             except Exception:
-                logger.error("Plugin {} fucked up take".format(plugin.__class__.__name__))
+                logger.error("Plugin {} fucked up `take`".format(plugin.__class__.__name__))
                 logger.error(traceback.format_exc())
 
     def handle(self, client, msg_type, msg_data):
-        if msg_type not in self.command_map:
-            logger.error("command not found: {} (from {})".format(
-                msg_type, client.name
-            ))
+        if msg_type == 'activate':
+            client.active = True
+            client.vars['username'] = client.name
+            self.active_clients.add(client)
             self.user_to_network_clients[client.vars['username']].inform(
-                'command_not_found',
-                {'msg': 'HE! Du Sackgesicht! Es gibt den Befehl "{}" nicht!'.format(msg_type)}
+                'activated',
+                {'msg': 'A shaft was built for you. You can transport now.'}
             )
-            raise AttributeError
+            self.emit(client, 'activated')
+            self.inform_all("WELCOME", client.name)
+            return
 
-        ret = self.command_map[msg_type](client, **msg_data)
+        if client.active:
+            if msg_type not in self.command_map:
+                logger.error("command not found: {} (from {})".format(
+                    msg_type, client.name
+                ))
+                self.user_to_network_clients[client.vars['username']].inform(
+                    'command_not_found',
+                    {'msg': 'HE! Du Sackgesicht! Es gibt den Befehl "{}" nicht!'.format(msg_type)}
+                )
+                raise AttributeError
+
+            ret = self.command_map[msg_type](client, **msg_data)
+
+        else:
+            if msg_type not in self.inactive_command_map:
+                self.user_to_network_clients[client.name].inform(
+                    'inactive_command_not_found',
+                    {'msg': 'The command "{}" does not exist, or your client isn\'t allowed to use it. Try activating before playing!'.format(msg_type)}
+                )
+                raise AttributeError
+
+            ret = self.inactive_command_map[msg_type](client, **msg_data)
 
         if ret:
             try:
@@ -181,8 +226,8 @@ class Game:
         self.time += 1
 
         for c in self.game_clients:
-            # unfortunatelly we need to try-except every sate
-            # if one plugin fail, other should still be executed
+            # unfortunately we need to try-except every state
+            # if one plugin fails, the other should still be executed
             new_states = set()
             for state_f in c.states:
                 try:
@@ -204,7 +249,7 @@ class Game:
 
         for p in self.plugins:
             try:
-                p.tick(self.time, self.game_clients)
+                p.tick(self.time, self.active_clients)
             except Exception:
                 logger.info("Plugin {} tick failed ".format(p.__class__.__name__))
                 logger.error(traceback.format_exc())
@@ -217,8 +262,9 @@ class GameClient:
         self.game = game
         self.online = True
         self.observer = True if observer else False
+        self.active = False
 
-        self.vars = {'username': username}
+        self.vars = {}  # will be set later when the client activates
 
         self.states = set()
         self.level = 0

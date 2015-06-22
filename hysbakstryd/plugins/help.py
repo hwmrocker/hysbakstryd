@@ -6,11 +6,13 @@ class HelpPlugin(Plugin):
     """
     Show help on registered plugins.
 
-    Offers two commands:
+    Offers four commands:
+     * `help`: return an introductory message and pointers on what to try next
      * `help_plugins`: return to the calling client a list of plugins, or, when called
        with a `plugin` argument, return the documentation on the loaded plugin.
      * `help_command`: return to the calling client a list of commands, or, when called
        with a `command` argument, return the documentation of the given command.
+     * `WHAT_DO_I_DO_NOW`: sends a soothing message to the user
     """
 
     def do_WHAT_DO_I_DO_NOW(self, client):
@@ -21,6 +23,7 @@ class HelpPlugin(Plugin):
         """
 
         return (), ('relax', message), None
+    do_WHAT_DO_I_DO_NOW.allow_inactive = True
 
     def do_help(self, client):
         """
@@ -28,7 +31,10 @@ class HelpPlugin(Plugin):
         """
         
         message = """
-First things first: If you don't know what to do, call the WHAT_DO_I_DO_NOW command.
+First things first: If you want to watch, simply call `do_observe` and see everything that happens. If you want to play,
+you must send `activate`.
+
+If you don't know what to do, call the WHAT_DO_I_DO_NOW command.
 
 Here is a list of all commands that are available on this server:
 {}
@@ -37,6 +43,7 @@ call help_command with command=<command name> for each of these to find out what
 each of them does.
 
 It's probably best to start with movement, so try this first:
+  ``activate``
   ``set_level, level=5``
   ``set_direction, direction="up"``
 then wait a little while and get your state with:
@@ -45,6 +52,7 @@ then wait a little while and get your state with:
         commandlist = '\n'.join(sorted(self.game.command_map.keys()))
         
         return (), ('help', message.format(commandlist)), None
+    do_help.allow_inactive = True
 
     def do_help_plugin(self, client, plugin=None):
         """
@@ -59,6 +67,7 @@ then wait a little while and get your state with:
             return (), ('help_for_plugin', p.__doc__), None
 
         return (), None, None
+    do_help_plugin.allow_inactive = True
 
     def do_help_command(self, client, command=None):
         """
@@ -81,6 +90,12 @@ then wait a little while and get your state with:
                 params = argspec.args[2:]
                 optional = {}
 
-            return (), ('help_for_command', {'name': command_name, 'doc': doc, 'parameters': params, 'optional': optional}), None
+            return (), ('help_for_command', {
+                'name': command_name,
+                'doc': doc,
+                'parameters': params, 'optional': optional,
+                'allow_active': getattr(command, 'allow_active', True), 'allow_inactive': getattr(command, 'allow_inactive', False),
+            }), None
 
         return (), ('help_for_command', 'command not found'), None
+    do_help_command.allow_inactive = True
